@@ -9,35 +9,60 @@ const planRouter = require('./router/planRoutes');
 const fileRoutes = require('./router/fileRoutes');
 const db = require('./config/db');
 const app = express();
+
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 
-// Add this middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(bodyParser.json()); // Also needed for JSON payloads
+app.use(bodyParser.json());
+
 // Configure CORS
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5174',
+    'http://localhost:5173',
+    'https://servs.ufdevs.me',
+    'https://ufdevs.me',
+    'https://www.peekbi.com',
+    process.env.FRONTEND_URL // Add your Render frontend URL here
+].filter(Boolean); // Remove any undefined values
+
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://localhost:3001', 'https://servs.ufdevs.me', 'http://localhost:5174', 'http://localhost:5173', 'https://servs.ufdevs.me/login', 'https://ufdevs.me', 'https://www.peekbi.com'],
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) === -1) {
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
 }));
+
 // Global error handler for multer and custom errors
 app.use((err, req, res, next) => {
-    // Multer file too large
+    console.error(err.stack);
+    
     if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ error: 'File size exceeds 5 MB limit.' });
     }
 
-    // Custom file type error (from your fileFilter)
     if (err.message === 'Only Excel files are allowed') {
         return res.status(400).json({ error: err.message });
     }
 
-    // Other unexpected errors
-    return res.status(500).json({ error: 'Something went wrong', details: err.message });
+    return res.status(500).json({ 
+        error: 'Something went wrong', 
+        message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
+    });
 });
 
 app.get('/', (req, res) => {
@@ -85,19 +110,25 @@ app.get('/', (req, res) => {
     });
 });
 
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: "OK",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
+
 app.use('/users', userRouter);
 app.use('/admin', adminRouter);
 app.use('/subscription', subscriptionRouter);
 app.use('/plan', planRouter);
 app.use('/files', fileRoutes);
 
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
 
-// for local testing
-if (process.env.NODE_ENV !== 'production') {
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-        console.log(`🚀 Server running on http://localhost:${PORT}`);
-    });
-}
-// for vercel 
 module.exports = app;
