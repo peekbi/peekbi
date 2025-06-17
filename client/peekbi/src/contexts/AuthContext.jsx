@@ -5,22 +5,53 @@ const AuthContext = createContext(null);
 
 const API_BASE_URL = 'https://api.peekbi.com';
 
-// Helper functions for localStorage
+// Helper functions for localStorage and cookies
 const setLocalStorage = (key, value) => {
     try {
-        localStorage.setItem(key, JSON.stringify(value));
+        localStorage.setItem(key, value);
     } catch (error) {
-        console.error('Error saving to localStorage:', error);
+        console.error('Error setting localStorage:', error);
     }
 };
 
 const getLocalStorage = (key) => {
     try {
-        const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : null;
+        return localStorage.getItem(key);
     } catch (error) {
-        console.error('Error reading from localStorage:', error);
+        console.error('Error getting localStorage:', error);
         return null;
+    }
+};
+
+// Cookie helper functions for better persistence
+const setCookie = (name, value, days = 7) => {
+    try {
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        const expires = `expires=${date.toUTCString()}`;
+        document.cookie = `${name}=${value};${expires};path=/;SameSite=Strict`;
+    } catch (error) {
+        console.error('Error setting cookie:', error);
+    }
+};
+
+const getCookie = (name) => {
+    try {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    } catch (error) {
+        console.error('Error getting cookie:', error);
+        return null;
+    }
+};
+
+const deleteCookie = (name) => {
+    try {
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+    } catch (error) {
+        console.error('Error deleting cookie:', error);
     }
 };
 
@@ -28,41 +59,220 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [tokenRefreshTimer, setTokenRefreshTimer] = useState(null);
 
-    // Load user data from localStorage on initial load
+    // Function to get auth token with priority: localStorage > cookie
+    const getAuthToken = () => {
+        try {
+            // Try localStorage first
+            const token = localStorage.getItem('token');
+            console.log('LocalStorage token:', token); // Debug log
+
+            if (token) {
+                // If token exists in localStorage, ensure it's also in cookie
+                const date = new Date();
+                date.setTime(date.getTime() + (7 * 24 * 60 * 60 * 1000));
+                const expires = `expires=${date.toUTCString()}`;
+                document.cookie = `token=${token};${expires};path=/;SameSite=Strict;secure`;
+                return token;
+            }
+
+            // Try cookie if localStorage is empty
+            const cookieToken = getCookie('token');
+            console.log('Cookie token:', cookieToken); // Debug log
+
+            if (cookieToken) {
+                // If token exists in cookie but not in localStorage, sync it
+                localStorage.setItem('token', cookieToken);
+                return cookieToken;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('Error getting auth token:', error);
+            return null;
+        }
+    };
+
+    // Function to save auth token in both cookie and localStorage
+    const saveAuthToken = (token) => {
+        if (!token) {
+            console.log('No token provided to saveAuthToken'); // Debug log
+            return;
+        }
+        
+        try {
+            console.log('Saving token to storage...'); // Debug log
+            
+            // Store in localStorage
+            localStorage.setItem('token', token);
+            console.log('Token saved to localStorage'); // Debug log
+            
+            // Store in cookie with 7 days expiry
+            const date = new Date();
+            date.setTime(date.getTime() + (7 * 24 * 60 * 60 * 1000));
+            const expires = `expires=${date.toUTCString()}`;
+            document.cookie = `token=${token};${expires};path=/;SameSite=Strict;secure`;
+            console.log('Token saved to cookie'); // Debug log
+            
+            // Verify the token was saved
+            const savedToken = localStorage.getItem('token');
+            const savedCookie = getCookie('token');
+            console.log('Verification - localStorage:', savedToken); // Debug log
+            console.log('Verification - cookie:', savedCookie); // Debug log
+        } catch (error) {
+            console.error('Error saving token:', error);
+        }
+    };
+
+    // Function to clear auth data
+    const clearAuthData = () => {
+        try {
+            console.log('Clearing auth data...'); // Debug log
+            localStorage.removeItem('token');
+            document.cookie = 'token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Strict';
+            setUser(null);
+            if (tokenRefreshTimer) {
+                clearInterval(tokenRefreshTimer);
+                setTokenRefreshTimer(null);
+            }
+            console.log('Auth data cleared'); // Debug log
+        } catch (error) {
+            console.error('Error clearing auth data:', error);
+        }
+    };
+
+    // Function to verify token
+    const verifyToken = (token) => {
+        if (!token) {
+            console.log('No token provided to verifyToken'); // Debug log
+            return false;
+        }
+        
+        try {
+            // Simple token validation - check if it exists and has a valid format
+            if (typeof token !== 'string' || token.length < 10) {
+                console.log('Invalid token format'); // Debug log
+                return false;
+            }
+            
+            // Check if token is expired (assuming token contains expiration time)
+            const tokenData = JSON.parse(atob(token.split('.')[1]));
+            console.log('Token data in verifyToken:', tokenData); // Debug log
+            
+            // If token doesn't have exp, use iat + 7 days as expiration
+            const expirationTime = tokenData.exp ? tokenData.exp * 1000 : (tokenData.iat * 1000) + (7 * 24 * 60 * 60 * 1000);
+            const isValid = Date.now() < expirationTime;
+            
+            if (!isValid) {
+                console.log('Token is expired'); // Debug log
+                clearAuthData();
+            } else {
+                console.log('Token is valid'); // Debug log
+            }
+            
+            return isValid;
+        } catch (error) {
+            console.error('Token verification error:', error);
+            return false;
+        }
+    };
+
+    // Function to refresh token
+    const refreshToken = async () => {
+        const token = getAuthToken();
+        if (!token) return false;
+
+        try {
+            if (verifyToken(token)) {
+                // Token is still valid, extend its lifetime
+                saveAuthToken(token);
+                return true;
+            } else {
+                // Token is expired, clear auth data
+                clearAuthData();
+                return false;
+            }
+        } catch (error) {
+            console.error('Token refresh error:', error);
+            clearAuthData();
+            return false;
+        }
+    };
+
+    // Setup token refresh interval
+    const setupTokenRefresh = () => {
+        // Clear any existing interval
+        if (tokenRefreshTimer) {
+            clearInterval(tokenRefreshTimer);
+        }
+
+        // Check token every 5 minutes
+        const interval = setInterval(async () => {
+            const token = getAuthToken();
+            if (!token) {
+                clearInterval(interval);
+                return;
+            }
+
+            if (!verifyToken(token)) {
+                clearAuthData();
+                clearInterval(interval);
+            }
+        }, 5 * 60 * 1000);
+
+        setTokenRefreshTimer(interval);
+    };
+
+    // Load user data from storage on initial load
     useEffect(() => {
         const loadUserData = async () => {
             try {
-                const token = localStorage.getItem('token');
-                const storedUser = localStorage.getItem('user');
-                
-                if (token && storedUser) {
-                    // Verify token with backend
-                    const response = await axios.get(`${API_BASE_URL}/auth/verify`, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-                    
-                    if (response.data.valid) {
-                        setUser(JSON.parse(storedUser));
-                    } else {
-                        // Token invalid, clear storage
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('user');
-                    }
+                const token = getAuthToken();
+                console.log('Token on load:', token); // Debug log
+
+                if (!token) {
+                    console.log('No token found'); // Debug log
+                    setLoading(false);
+                    return;
                 }
-            } catch (err) {
-                console.error('Error loading user data:', err);
-                // Clear invalid data
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+
+                if (!verifyToken(token)) {
+                    console.log('Token verification failed'); // Debug log
+                    clearAuthData();
+                    setLoading(false);
+                    return;
+                }
+
+                // If we have a valid token, set the user data from token
+                const tokenData = JSON.parse(atob(token.split('.')[1]));
+                console.log('Token data:', tokenData); // Debug log
+
+                setUser({
+                    _id: tokenData.id,
+                    email: tokenData.email,
+                    name: tokenData.name || tokenData.email.split('@')[0],
+                    role: tokenData.role || 'user'
+                });
+
+                // Setup token refresh
+                setupTokenRefresh();
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                clearAuthData();
             } finally {
                 setLoading(false);
             }
         };
 
         loadUserData();
+
+        // Cleanup function
+        return () => {
+            if (tokenRefreshTimer) {
+                clearInterval(tokenRefreshTimer);
+            }
+        };
     }, []);
 
     const fetchUserProfile = async (userId) => {
@@ -110,23 +320,38 @@ export const AuthProvider = ({ children }) => {
             });
 
             if (response.data.token) {
-                const { token, user: userData } = response.data;
+                const token = response.data.token;
+                console.log('Login token received:', token); // Debug log
                 
-                // Store token and user data
-                localStorage.setItem('token', token);
-                localStorage.setItem('user', JSON.stringify(userData));
+                // Save token first
+                saveAuthToken(token);
                 
-                // Update state
-                setUser(userData);
+                // Verify token was saved
+                const savedToken = getAuthToken();
+                console.log('Token after save:', savedToken); // Debug log
+                
+                // Then verify and set user data
+                const tokenData = JSON.parse(atob(token.split('.')[1]));
+                console.log('Login token data:', tokenData); // Debug log
+                
+                setUser({
+                    _id: tokenData.id, // Changed from userId to id to match your token
+                    email: tokenData.email,
+                    name: tokenData.name || email.split('@')[0], // Fallback to email username if name not provided
+                    role: tokenData.role || 'user' // Fallback to user if role not provided
+                });
+
+                // Setup token refresh
+                setupTokenRefresh();
+                
                 return { success: true };
-            } else {
-                throw new Error(response.data.message || 'Login failed');
             }
-        } catch (err) {
-            console.error('Login error:', err);
-            return {
-                success: false,
-                error: err.response?.data?.message || err.message || 'Login failed'
+            return { success: false, error: 'Invalid response from server' };
+        } catch (error) {
+            console.error('Login error:', error);
+            return { 
+                success: false, 
+                error: error.response?.data?.message || 'Login failed'
             };
         }
     };
@@ -166,12 +391,15 @@ export const AuthProvider = ({ children }) => {
             if (response.data.status === 'success') {
                 const { token, user } = response.data;
 
-                // Save token and user data
-                localStorage.setItem('token', token);
+                // Save token and user data in both cookie and localStorage
+                saveAuthToken(token);
                 setLocalStorage('user', user);
 
                 // Set axios default header
                 axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+                // Setup token refresh
+                setupTokenRefresh();
 
                 setUser(user);
                 return { success: true };
@@ -185,10 +413,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        // Clear storage and state
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setUser(null);
+        clearAuthData();
     };
 
     const updateProfile = async (userId, userData) => {
@@ -322,7 +547,7 @@ export const AuthProvider = ({ children }) => {
                     responseType: 'blob'
                 }
             );
-            
+
             // Check if the response is a blob (file data)
             if (response.data instanceof Blob) {
                 return {
@@ -344,11 +569,12 @@ export const AuthProvider = ({ children }) => {
         }
     }
 
-    // Add axios interceptor for authentication
+    // Add axios interceptors for authentication and token refresh
     useEffect(() => {
-        const interceptor = axios.interceptors.request.use(
+        // Request interceptor - add token to all requests
+        const requestInterceptor = axios.interceptors.request.use(
             (config) => {
-                const token = localStorage.getItem('token');
+                const token = getAuthToken();
                 if (token) {
                     config.headers.Authorization = `Bearer ${token}`;
                 }
@@ -359,10 +585,46 @@ export const AuthProvider = ({ children }) => {
             }
         );
 
+        // Response interceptor - handle 401 errors
+        const responseInterceptor = axios.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                const originalRequest = error.config;
+
+                // If error is 401 and we haven't tried to refresh token yet
+                if (error.response?.status === 401 && !originalRequest._retry && user) {
+                    originalRequest._retry = true;
+
+                    try {
+                        // Try to refresh the token
+                        const refreshed = await refreshToken();
+
+                        if (refreshed) {
+                            // Update the token in the current request
+                            originalRequest.headers['Authorization'] = `Bearer ${getAuthToken()}`;
+                            // Retry the original request
+                            return axios(originalRequest);
+                        } else {
+                            // If refresh failed, logout
+                            clearAuthData();
+                            setUser(null);
+                        }
+                    } catch (refreshError) {
+                        console.error('Token refresh error:', refreshError);
+                        clearAuthData();
+                        setUser(null);
+                    }
+                }
+
+                return Promise.reject(error);
+            }
+        );
+
         return () => {
-            axios.interceptors.request.eject(interceptor);
+            axios.interceptors.request.eject(requestInterceptor);
+            axios.interceptors.response.eject(responseInterceptor);
         };
-    }, []);
+    }, [user]);
 
     const value = {
         user,
@@ -376,6 +638,8 @@ export const AuthProvider = ({ children }) => {
         uploadFile,
         getAllUserFiles,
         downloadFiles,
+        refreshToken,
+        getAuthToken,
     };
 
     return (
@@ -394,4 +658,4 @@ export const useAuth = () => {
 };
 
 
-export default AuthContext; 
+export default AuthContext;

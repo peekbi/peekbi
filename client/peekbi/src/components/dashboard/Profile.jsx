@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { FiUser, FiMail, FiCalendar, FiCreditCard, FiShield, FiDatabase, FiCheck, FiX, FiEdit2, FiSave, FiLoader, FiArrowLeft } from 'react-icons/fi';
 import axios from 'axios';
 
 const Profile = () => {
-    const { id: urlId } = useParams();
     const navigate = useNavigate();
     const { user: currentUser, loading: authLoading } = useAuth();
     const [user, setUser] = useState(null);
@@ -38,27 +37,26 @@ const Profile = () => {
             try {
                 setLoading(true);
                 setError(null);
-                
+
                 // Wait for auth to finish loading
                 if (authLoading) {
                     return;
                 }
 
-                // If no URL ID and no current user, we can't proceed
-                if (!urlId && !currentUser) {
+                // If no current user, we can't proceed
+                if (!currentUser) {
                     throw new Error('Please log in to view your profile');
                 }
 
-                // Always use currentUser._id for API calls
-                const userId = currentUser?._id;
+                // Use currentUser._id for API calls
+                const userId = currentUser._id;
 
                 // Double check userId is available
                 if (!userId) {
-                    console.error('No user ID available:', { 
-                        urlId, 
-                        currentUser, 
+                    console.error('No user ID available:', {
+                        currentUser,
                         currentUserId: currentUser?._id,
-                        authLoading 
+                        authLoading
                     });
                     throw new Error('User ID not found. Please log in again.');
                 }
@@ -94,7 +92,7 @@ const Profile = () => {
                 }
 
                 const userData = response.data.user;
-                
+
                 // Validate required user fields
                 if (!userData.id && !userData._id) {
                     console.error('User data missing ID:', userData);
@@ -153,9 +151,9 @@ const Profile = () => {
                     currentUserId: currentUser?._id,
                     authLoading
                 });
-                
+
                 let errorMessage = 'Failed to fetch user profile';
-                
+
                 if (err.response?.status === 401) {
                     errorMessage = 'Session expired. Please log in again.';
                 } else if (err.response?.status === 403) {
@@ -167,7 +165,7 @@ const Profile = () => {
                 } else if (err.message) {
                     errorMessage = err.message;
                 }
-                
+
                 setError(errorMessage);
             } finally {
                 setLoading(false);
@@ -178,10 +176,10 @@ const Profile = () => {
         if (!authLoading && currentUser) {
             fetchUserProfile();
         } else if (!authLoading) {
-            console.error('No user available:', { 
-                currentUser, 
+            console.error('No user available:', {
+                currentUser,
                 currentUserId: currentUser?._id,
-                authLoading 
+                authLoading
             });
             setError('User not found. Please log in again.');
             setLoading(false);
@@ -289,9 +287,9 @@ const Profile = () => {
                 currentUser,
                 currentUserId: currentUser?._id
             });
-            
+
             let errorMessage = 'Failed to update profile';
-            
+
             if (err.response?.status === 401) {
                 errorMessage = 'Session expired. Please log in again.';
             } else if (err.response?.status === 403) {
@@ -301,7 +299,7 @@ const Profile = () => {
             } else if (err.message) {
                 errorMessage = err.message;
             }
-            
+
             setUpdateError(errorMessage);
         } finally {
             setIsUpdating(false);
@@ -368,17 +366,11 @@ const Profile = () => {
             <div className="max-w-7xl mx-auto px-4 py-8">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
-                    <button
-                        onClick={() => navigate('/user/dashboard')}
-                        className="flex items-center text-gray-600 hover:text-[#7400B8] transition-colors"
-                    >
-                        <FiArrowLeft className="w-5 h-5 mr-2" />
-                        Back to Dashboard
-                    </button>
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-[#7400B8] to-[#9B4DCA] text-transparent bg-clip-text">Profile Information</h2>
                     {!isEditing && user && (
                         <button
                             onClick={handleEdit}
-                            className="flex items-center px-4 py-2 bg-[#7400B8] text-white rounded-lg hover:bg-[#9B4DCA] transition-colors"
+                            className="flex items-center px-4 py-2 bg-gradient-to-r from-[#7400B8] to-[#9B4DCA] text-white rounded-lg hover:shadow-lg transition-all duration-300"
                         >
                             <FiEdit2 className="w-5 h-5 mr-2" />
                             Edit Profile
@@ -393,8 +385,6 @@ const Profile = () => {
                 >
                     {/* User Information */}
                     <div className="p-8">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6">Profile Information</h2>
-                        
                         {isEditing ? (
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 {updateError && (
@@ -684,8 +674,8 @@ const Profile = () => {
                                 <ul className="space-y-2 text-sm">
                                     {user.plan?.features && Object.entries(user.plan.features).map(([feature, enabled]) => (
                                         <li key={feature} className="flex items-center space-x-2">
-                                            {enabled ? 
-                                                <FiCheck className="w-5 h-5 text-green-500" /> : 
+                                            {enabled ?
+                                                <FiCheck className="w-5 h-5 text-green-500" /> :
                                                 <FiX className="w-5 h-5 text-red-500" />
                                             }
                                             <span className={enabled ? "text-gray-800" : "text-gray-500"}>

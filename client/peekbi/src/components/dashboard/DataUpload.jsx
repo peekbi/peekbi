@@ -250,39 +250,14 @@ const DataUpload = () => {
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-white">
-            {/* Header */}
-            <header className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-10">
-                <div className="max-w-[1200px] mx-auto px-6 py-4 flex items-center justify-between w-full">
-                    <div className="flex items-center">
-                        <img
-                            src="/assets/logos.png"
-                            alt="PeekBI Logo"
-                            className="h-12"
-                            onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = "/assets/logo.png";
-                            }}
-                        />
-                    </div>
-                    <div className="flex items-center space-x-4">
-                        <button
-                            onClick={() => navigate('/')}
-                            className="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            </header>
-
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#F9F4FF] via-white to-[#F9F4FF]">
             {/* Main Content */}
             <main className="flex-grow flex items-center justify-center p-6">
                 <div className="max-w-[1200px] w-full mx-auto">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
                         className="w-full"
                     >
                         <div className="text-center mb-12">

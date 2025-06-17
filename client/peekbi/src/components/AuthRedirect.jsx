@@ -1,10 +1,13 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useEffect } from 'react';
 
-const ProtectedRoute = ({ children }) => {
+/**
+ * AuthRedirect component redirects authenticated users away from login/register pages
+ * to the dashboard, preventing unnecessary authentication screens
+ */
+const AuthRedirect = ({ children }) => {
     const { user, loading, refreshToken } = useAuth();
-    const location = useLocation();
 
     // Attempt to refresh token on component mount
     useEffect(() => {
@@ -18,6 +21,7 @@ const ProtectedRoute = ({ children }) => {
         attemptTokenRefresh();
     }, []);
 
+    // Show loading spinner while authentication state is being determined
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -26,12 +30,13 @@ const ProtectedRoute = ({ children }) => {
         );
     }
 
-    if (!user) {
-        // Redirect to login page but save the attempted url
-        return <Navigate to="/login" state={{ from: location }} replace />;
+    // If user is already authenticated, redirect to dashboard
+    if (user) {
+        return <Navigate to="/user/dashboard" replace />;
     }
 
+    // Otherwise, render the children (login or register component)
     return children;
 };
 
-export default ProtectedRoute;
+export default AuthRedirect;

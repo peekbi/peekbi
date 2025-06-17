@@ -281,7 +281,7 @@ const LandingPage = () => {
         <motion.div
           className="md:hidden overflow-hidden"
           initial={{ height: 0, opacity: 0 }}
-          animate={{ 
+          animate={{
             height: isMobileMenuOpen ? 'auto' : 0,
             opacity: isMobileMenuOpen ? 1 : 0
           }}
@@ -528,7 +528,7 @@ const LandingPage = () => {
       {typeof PricingSection !== 'undefined' && (
         <div className="bg-white">
           <PricingSection />
-     
+
         </div>
       )}
 
