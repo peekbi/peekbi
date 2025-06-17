@@ -46,7 +46,7 @@ exports.uploadFile = async (req, res) => {
             analysisS3Key,
             mimeType: mimetype,
             sizeInBytes: size,
-            category,
+            fileCategory: category,
             uploadedAt: new Date(),
         });
 

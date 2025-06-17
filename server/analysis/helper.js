@@ -67,12 +67,22 @@ function detectOutliers(data) {
  * Computes correlation between two numeric columns.
  */
 function correlation(df, col1, col2) {
+    if (!df.columns.includes(col1) || !df.columns.includes(col2)) {
+        console.warn(`⚠️  Cannot compute correlation: Missing column ${!df.columns.includes(col1) ? col1 : col2}`);
+        return 0;
+    }
+
     const vals1 = df[col1].values.filter(v => typeof v === "number");
     const vals2 = df[col2].values.filter(v => typeof v === "number");
 
-    if (!vals1.length || !vals2.length || vals1.length !== vals2.length) return 0;
+    if (!vals1.length || !vals2.length || vals1.length !== vals2.length) {
+        console.warn(`⚠️  Correlation failed due to empty or unequal length arrays: ${col1}, ${col2}`);
+        return 0;
+    }
+
     return ss.sampleCorrelation(vals1, vals2);
 }
+
 
 /**
  * Generates average trend per date.
@@ -87,23 +97,46 @@ function trendAnalysis(df, dateCol, valueCol) {
 
     for (let i = 0; i < df.shape[0]; i++) {
         const rawDate = df[dateCol].values[i];
-        const value = df[valueCol].values[i];
-        const date = new Date(rawDate);
+        const rawValue = df[valueCol].values[i];
 
-        if (isNaN(date) || typeof value !== "number") continue;
+        const date = new Date(rawDate);
+        const value = parseFloat(rawValue);
+
+        if (isNaN(date) || isNaN(value)) continue;
 
         const key = date.toISOString().split("T")[0];
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(value);
     }
 
-    return Object.keys(grouped)
-        .map(date => ({
+    const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
+
+    let lastTotal = 0;
+    let cumulative = 0;
+
+    return sortedDates.map(date => {
+        const values = grouped[date];
+        const total = values.reduce((a, b) => a + b, 0);
+        const avg = total / values.length;
+        const orderCount = values.length;
+        const avgOrderValue = total / (orderCount || 1);
+        cumulative += total;
+
+        const change = lastTotal === 0 ? 0 : ((total - lastTotal) / lastTotal) * 100;
+        lastTotal = total;
+
+        return {
             date,
-            avg: grouped[date].reduce((a, b) => a + b, 0) / grouped[date].length
-        }))
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
+            total_sales: total,
+            avg_sales: avg,
+            order_count: orderCount,
+            avg_order_value: avgOrderValue,
+            cumulative_sales: cumulative,
+            change_percent: parseFloat(change.toFixed(2))
+        };
+    });
 }
+
 
 module.exports = {
     groupByAndAggregate,

@@ -2,7 +2,8 @@ const dfd = require("danfojs-node");
 const ss = require("simple-statistics");
 const { groupByAndAggregate, detectOutliers, correlation, trendAnalysis } = require("./helper");
 const { safeSum, safeMean, safeMedian, safeMax, safeMin } = require("./utils/statsUtils");
-
+const { getRetailInsights } = require("./insights/retailInsights");
+const { getFinanceInsights } = require("./insights/financeInsights");
 function getInsightsByCategory(df, category) {
     const insights = {
         kpis: {},
@@ -17,95 +18,16 @@ function getInsightsByCategory(df, category) {
 
     switch (category.toLowerCase()) {
         case 'retail': {
-            const sales = colMatch('sales');
-            const profit = colMatch('profit');
-            const loss = colMatch('loss');
-            const region = colMatch('region');
-            const cat = colMatch('category');
-
-            const salesVals = df[sales]?.values ?? [];
-            const profitVals = df[profit]?.values ?? [];
-            const lossVals = df[loss]?.values ?? [];
-
-            insights.kpis = {
-                total_sales: safeSum(salesVals),
-                total_profit: safeSum(profitVals),
-                total_loss: loss ? safeSum(lossVals) : safeSum(salesVals) - safeSum(profitVals),
-                avg_sales: safeMean(salesVals),
-                median_sales: safeMedian(salesVals),
-            };
-
-            if (cat && sales) {
-                const grouped = groupByAndAggregate(df, cat, sales, 'sum');
-                if (grouped) {
-                    grouped.sortValues(sales, { ascending: false, inplace: true });
-                    insights.highPerformers = dfd.toJSON(grouped.head(3), { format: "row" });
-                    insights.lowPerformers = dfd.toJSON(grouped.tail(3), { format: "row" });
-                }
-            }
-
-            if (profit && loss) {
-                const corr = correlation(df, profit, loss);
-                insights.hypothesis.push(`Profit and Loss correlation: ${corr.toFixed(2)}`);
-            } else if (profit && sales) {
-                const profitMargin = safeMean(df[profit].values) / (safeMean(df[sales].values) || 1);
-                insights.hypothesis.push(`Average profit margin is ${(profitMargin * 100).toFixed(2)}%. Consider evaluating products with low margin.`);
-            } else if (sales) {
-                insights.hypothesis.push(`Sales distribution shows differences across categories. Consider investigating underperforming ones.`);
-            }
-
-
-            if (region && sales) {
-                const grouped = groupByAndAggregate(df, region, sales, 'sum');
-                if (grouped) {
-                    insights.totals.sales_by_region = dfd.toJSON(grouped, { format: "row" });
-                }
-            }
-
-            if (cat && sales) {
-                const grouped = groupByAndAggregate(df, cat, sales, 'sum');
-                if (grouped) {
-                    insights.totals.sales_by_category = dfd.toJSON(grouped, { format: "row" });
-                }
-            }
-
-            const dateCol = colMatch('date');
-            if (dateCol && sales) {
-                insights.trends = trendAnalysis(df, dateCol, sales);
-            }
-
-            break;
+            const match = (keywords) =>
+                df.columns.find(col => keywords.some(k => col.toLowerCase().replace(/[\s_]/g, '').includes(k)));
+            return getRetailInsights(df, match);
         }
 
         case 'finance': {
-            const revenue = colMatch('revenue');
-            const expenses = colMatch('expense');
-            const dept = colMatch('department');
-
-            const revenueVals = df[revenue]?.values ?? [];
-            const expensesVals = df[expenses]?.values ?? [];
-
-            insights.kpis = {
-                total_revenue: safeSum(revenueVals),
-                total_expenses: safeSum(expensesVals),
-                net_profit: safeSum(revenueVals) - safeSum(expensesVals),
-            };
-
-            if (revenue && expenses) {
-                insights.hypothesis.push("Check if departments with higher revenue also have higher expenses.");
-            }
-
-            if (dept && revenue) {
-                const grouped = groupByAndAggregate(df, dept, revenue, 'sum');
-                if (grouped) {
-                    grouped.sortValues(revenue, { ascending: false, inplace: true });
-                    insights.highPerformers = dfd.toJSON(grouped.head(3), { format: "row" });
-                    insights.lowPerformers = dfd.toJSON(grouped.tail(3), { format: "row" });
-                }
-            }
-
+            insights = getFinanceInsights(df, colMatch);
             break;
         }
+
 
         case 'education': {
             const marks = colMatch('mark') || colMatch('score');

@@ -9,7 +9,6 @@ const fileSchema = new mongoose.Schema({
     fileCategory: {
         type: String,
         enum: ['Retail', 'Finance', 'Healthcare', 'Education', 'Technology', 'Manufacturing', 'General'],
-        default: 'Retail'
     },
     uploadedAt: { type: Date, default: Date.now },
     downloadCount: { type: Number, default: 0 },
