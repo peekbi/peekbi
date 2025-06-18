@@ -8,6 +8,7 @@ const fileSchema = new mongoose.Schema({
     sizeInBytes: Number,
     fileCategory: {
         type: String,
+        trim: true,
         enum: ['Retail', 'Finance', 'Healthcare', 'Education', 'Technology', 'Manufacturing', 'General'],
     },
     uploadedAt: { type: Date, default: Date.now },

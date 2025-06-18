@@ -1,7 +1,7 @@
 const dfd = require("danfojs-node");
 const { groupByAndAggregate, correlation, trendAnalysis } = require("../helper");
 const { safeSum, safeMean, safeMedian } = require("../utils/statsUtils");
-
+const mlr = require("ml-regression").SimpleLinearRegression;
 function getRetailInsights(df, match) {
     const insights = {
         kpis: {},
@@ -153,6 +153,25 @@ function getRetailInsights(df, match) {
     // Sales Trend (only if dataset is manageable)
     if (dateCol && salesColumnName && df.shape[0] < 10000) {
         insights.trends = trendAnalysis(df, dateCol, salesColumnName);
+    }
+    // === Sales Forecast using Simple Linear Regression ===
+    if (dateCol && salesColumnName && df.shape[0] >= 3) {
+        try {
+            const dfTime = df.loc({ columns: [dateCol, salesColumnName] }).dropNa();
+            const sorted = dfTime.sortValues(dateCol);
+            const x = Array.from({ length: sorted.shape[0] }, (_, i) => i); // time index
+            const y = cleanVals(sorted[salesColumnName].values);
+
+            if (x.length === y.length && x.length >= 3) {
+                const reg = new mlr(x, y);
+                const forecast = reg.predict(x.length); // predict for next time index
+
+                insights.kpis.sales_forecast_next_period = forecast.toFixed(2);
+                insights.hypothesis.push("🔮 Forecasted next period's sales using Simple Linear Regression.");
+            }
+        } catch (err) {
+            insights.hypothesis.push("⚠️ Sales forecasting failed: " + err.message);
+        }
     }
 
     return insights;
