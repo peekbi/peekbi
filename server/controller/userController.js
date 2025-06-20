@@ -207,7 +207,7 @@ module.exports.updateUserDetails = async (req, res) => {
         }
 
         res.status(200).json({
-            status: "success",
+            Success: "True",
             message: "User details updated successfully",
             user: {
                 id: updatedUser._id,

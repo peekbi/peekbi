@@ -97,8 +97,10 @@ exports.performAnalysis = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Analysis performed successfully.',
-            summary,
-            insights,
+            analysis: {
+                summary,
+                insights,
+            },
         });
 
     } catch (error) {
