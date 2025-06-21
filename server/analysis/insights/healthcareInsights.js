@@ -3,7 +3,14 @@ const mlr = require("ml-regression").SimpleLinearRegression;
 const { safeSum, safeMean, safeMax, safeMedian } = require("../utils/statsUtils");
 const { groupByAndAggregate, trendAnalysis } = require("../helper");
 
-// 🔍 Match column by fuzzy keyword
+// 🧼 Clean number array
+function cleanNum(vals) {
+    return Array.isArray(vals)
+        ? vals.map(v => parseFloat(v)).filter(v => !isNaN(v))
+        : [];
+}
+
+// 🔍 Fuzzy match helper
 function fuzzyMatch(df, keywords, type = "string") {
     const columns = df.columns;
     const normalized = columns.map(c => c.toLowerCase().replace(/\s|_/g, ''));
@@ -21,14 +28,7 @@ function fuzzyMatch(df, keywords, type = "string") {
     return null;
 }
 
-// 🧼 Convert to cleaned number array
-function cleanNum(vals) {
-    return Array.isArray(vals)
-        ? vals.map(v => parseFloat(v)).filter(v => !isNaN(v))
-        : [];
-}
-
-// ✅ Get first numeric column
+// ✅ First numeric column fallback
 function getFirstNumericCol(df) {
     for (const col of df.columns) {
         const vals = df[col].values;
@@ -36,7 +36,19 @@ function getFirstNumericCol(df) {
     }
     return null;
 }
-// ✅ Dynamic breakdown by all small cardinality string columns
+
+// 🔧 Safe .toJSON conversion to row objects
+function toRowJSON(df) {
+    return df.values.map((row, idx) => {
+        const obj = {};
+        df.columns.forEach((col, i) => {
+            obj[col] = row[i];
+        });
+        return obj;
+    });
+}
+
+// 🔁 Dynamic breakdown by small-cardinality strings
 function dynamicBreakdown(df, valueCol, insights) {
     df.columns.forEach(col => {
         if (col === valueCol) return;
@@ -50,15 +62,12 @@ function dynamicBreakdown(df, valueCol, insights) {
                 const grouped = groupByAndAggregate(df, col, valueCol, "sum");
                 const sorted = grouped.sortValues(valueCol, { ascending: false });
 
-                const topRows = dfd.toJSON(sorted.head(3), { format: "row" });
-                const bottomRows = dfd.toJSON(sorted.tail(3), { format: "row" });
-                const allRows = dfd.toJSON(sorted, { format: "row" });
-
+                const rows = toRowJSON(sorted);
                 const key = col.toLowerCase().replace(/\s+/g, '_');
-                insights.highPerformers[`top_${key}`] = topRows;
-                insights.lowPerformers[`bottom_${key}`] = bottomRows;
-                insights.totals[`cases_by_${key}`] = allRows;
 
+                insights.highPerformers[`top_${key}`] = rows.slice(0, 3);
+                insights.lowPerformers[`bottom_${key}`] = rows.slice(-3);
+                insights.totals[`cases_by_${key}`] = rows;
                 insights.hypothesis.push(`📌 Insight breakdown by '${col}' with ${uniqueCount} unique values.`);
             } catch (err) {
                 insights.hypothesis.push(`⚠️ Failed breakdown on '${col}': ${err.message}`);
@@ -67,14 +76,14 @@ function dynamicBreakdown(df, valueCol, insights) {
     });
 }
 
-// ✅ Main Insight Function
+// 🧠 Core Insight Generator
 function getHealthcareInsights(df) {
     const insights = {
         kpis: {
             total_cases: 0,
             avg_cases: 0,
             median_cases: 0,
-            max_cases: 0
+            max_cases: 0,
         },
         highPerformers: {},
         lowPerformers: {},
@@ -83,7 +92,7 @@ function getHealthcareInsights(df) {
         trends: [],
     };
 
-    // 🔍 Fuzzy detection of key columns
+    // 🔍 Auto-detect columns
     const valueCol = fuzzyMatch(df, ["value", "cases", "charges", "amount", "count", "number", "insulin", "glucose", "bmi"], "number") || getFirstNumericCol(df);
     const categoryCol = fuzzyMatch(df, ["injury", "disease", "outcome", "condition", "group", "result", "category"]);
     const regionCol = fuzzyMatch(df, ["region", "state", "zone", "location", "area"]);
@@ -91,105 +100,71 @@ function getHealthcareInsights(df) {
     const occupationCol = fuzzyMatch(df, ["occupation", "job", "role"]);
     const industryCol = fuzzyMatch(df, ["industry", "sector"]);
 
-    // ✅ Fallback notes
-    if (!valueCol) insights.hypothesis.push("⚠️ No numeric value column detected.");
-    else insights.hypothesis.push(`✅ Value column used: "${valueCol}"`);
+    if (!valueCol) {
+        insights.hypothesis.push("⚠️ No numeric value column detected.");
+        return insights;
+    }
 
-    const valArr = cleanNum(df[valueCol]?.values ?? []);
+    insights.hypothesis.push(`✅ Value column used: '${valueCol}'`);
+    const valArr = cleanNum(df[valueCol].values);
 
     // 🎯 KPIs
     insights.kpis.total_cases = safeSum(valArr);
     insights.kpis.avg_cases = safeMean(valArr);
     insights.kpis.median_cases = safeMedian(valArr);
     insights.kpis.max_cases = safeMax(valArr);
-    if (valArr.length > 0) insights.hypothesis.push("📊 KPIs computed from numeric column.");
+    insights.hypothesis.push("📊 KPIs computed.");
 
-    // 🗺️ Region Analysis
-    if (regionCol) {
-        const grouped = groupByAndAggregate(df, regionCol, valueCol, "sum");
-        if (grouped) {
+    // 🧩 Breakdown Helper
+    function breakdown(col, label) {
+        try {
+            const grouped = groupByAndAggregate(df, col, valueCol, "sum");
             const sorted = grouped.sortValues(valueCol, { ascending: false });
-            const topRows = dfd.toJSON(sorted.head(3), { format: "row" });
-            const bottomRows = dfd.toJSON(sorted.tail(3), { format: "row" });
-            const allRows = dfd.toJSON(sorted, { format: "row" });
+            const rows = toRowJSON(sorted);
 
-            insights.highPerformers.top_regions = topRows;
-            insights.lowPerformers.bottom_regions = bottomRows;
-            insights.totals.cases_by_region = allRows;
-            insights.hypothesis.push("🌍 Region-level insights added.");
+            insights.highPerformers[`top_${label}`] = rows.slice(0, 3);
+            insights.lowPerformers[`bottom_${label}`] = rows.slice(-3);
+            insights.totals[`cases_by_${label}`] = rows;
+
+            insights.hypothesis.push(`🧩 Breakdown on '${col}' as '${label}' complete.`);
+        } catch (err) {
+            insights.hypothesis.push(`⚠️ Breakdown error for '${col}': ${err.message}`);
         }
     }
 
-    // 💼 Occupation
-    if (occupationCol) {
-        const grouped = groupByAndAggregate(df, occupationCol, valueCol, "sum");
-        const sorted = grouped.sortValues(valueCol, { ascending: false });
-        const topRows = dfd.toJSON(sorted.head(3), { format: "row" });
-        const bottomRows = dfd.toJSON(sorted.tail(3), { format: "row" });
-        const allRows = dfd.toJSON(sorted, { format: "row" });
+    if (regionCol) breakdown(regionCol, "regions");
+    if (occupationCol) breakdown(occupationCol, "occupations");
+    if (industryCol) breakdown(industryCol, "industries");
+    if (categoryCol) breakdown(categoryCol, "conditions");
 
-        insights.highPerformers.top_occupations = topRows;
-        insights.lowPerformers.bottom_occupations = bottomRows;
-        insights.totals.cases_by_occupation = allRows;
-        insights.hypothesis.push("👔 Occupation-wise breakdown done.");
-    }
-
-    // 🏢 Industry
-    if (industryCol) {
-        const grouped = groupByAndAggregate(df, industryCol, valueCol, "sum");
-        const sorted = grouped.sortValues(valueCol, { ascending: false });
-        const topRows = dfd.toJSON(sorted.head(3), { format: "row" });
-        const allRows = dfd.toJSON(sorted, { format: "row" });
-
-        insights.highPerformers.top_industries = topRows;
-        insights.totals.cases_by_industry = allRows;
-        insights.hypothesis.push("🏭 Industry-wise analysis complete.");
-    }
-
-    // 🧬 Conditions / Outcomes
-    if (categoryCol) {
-        const grouped = groupByAndAggregate(df, categoryCol, valueCol, "sum");
-        const sorted = grouped.sortValues(valueCol, { ascending: false });
-        const topRows = dfd.toJSON(sorted.head(3), { format: "row" });
-        const bottomRows = dfd.toJSON(sorted.tail(3), { format: "row" });
-        const allRows = dfd.toJSON(sorted, { format: "row" });
-
-        insights.highPerformers.top_conditions = topRows;
-        insights.lowPerformers.bottom_conditions = bottomRows;
-        insights.totals.cases_by_condition = allRows;
-        insights.hypothesis.push("🧬 Outcome/category-level insights done.");
-    }
-
-    // 📊 Dynamic column breakdowns
-    if (valueCol) dynamicBreakdown(df, valueCol, insights);
+    // 🔁 Auto breakdown
+    dynamicBreakdown(df, valueCol, insights);
 
     // 📈 Trends
-    if (yearCol && valueCol) {
-        const trend = trendAnalysis(df, yearCol, valueCol);
-        insights.trends = trend;
+    if (yearCol) {
+        try {
+            const trend = trendAnalysis(df, yearCol, valueCol);
+            insights.trends = trend;
 
-        const values = trend.map(row => row.avg);
-        const growthRates = [];
-        for (let i = 1; i < values.length; i++) {
-            const prev = values[i - 1];
-            const now = values[i];
-            if (prev && now) {
-                const rate = ((now - prev) / prev) * 100;
-                if (!isNaN(rate)) growthRates.push(rate);
+            const values = trend.map(row => row.avg);
+            const growth = values
+                .map((v, i) => i === 0 ? null : ((v - values[i - 1]) / values[i - 1]) * 100)
+                .filter(v => v !== null && !isNaN(v));
+
+            if (growth.length > 0) {
+                insights.kpis.avg_growth_rate = safeMean(growth).toFixed(2) + "%";
+                insights.hypothesis.push("📈 Yearly growth trends analyzed.");
             }
-        }
-
-        if (growthRates.length > 0) {
-            insights.kpis.avg_growth_rate = safeMean(growthRates).toFixed(2) + "%";
-            insights.hypothesis.push("📈 Time-based growth trends computed.");
+        } catch (err) {
+            insights.hypothesis.push(`⚠️ Trend analysis error: ${err.message}`);
         }
     }
 
-    // 🔮 Forecast next year using regression
-    if (yearCol && valueCol && df.shape[0] >= 3) {
+    // 🔮 Forecast
+    if (yearCol && df.shape[0] >= 3) {
         try {
             const subset = df.loc({ columns: [yearCol, valueCol] }).dropNa();
-            const years = subset[yearCol].values.map(y => parseInt(y)).filter(y => !isNaN(y));
+            const years = cleanNum(subset[yearCol].values.map(y => parseInt(y)));
             const values = cleanNum(subset[valueCol].values);
 
             if (years.length === values.length && years.length >= 3) {
@@ -200,37 +175,35 @@ function getHealthcareInsights(df) {
                 insights.hypothesis.push(`🔮 Forecast: ~${pred.toFixed(2)} cases in ${next}`);
             }
         } catch {
-            insights.hypothesis.push("⚠️ Forecast skipped due to invalid time data.");
+            insights.hypothesis.push("⚠️ Forecast skipped due to invalid regression data.");
         }
     }
 
-    // 📉 Feature suggestion (experimental)
+    // 📉 Feature correlation
     const allNumCols = df.columns.filter(c => cleanNum(df[c].values).length > 0 && c !== valueCol);
-    if (allNumCols.length > 0) {
-        const correlations = allNumCols.map(col => {
-            const vals = cleanNum(df[col].values);
-            const paired = vals.map((v, i) => [v, valArr[i]]).filter(([a, b]) => !isNaN(a) && !isNaN(b));
-            const x = paired.map(p => p[0]);
-            const y = paired.map(p => p[1]);
-            const n = x.length;
-            if (n < 3) return null;
+    const topCorr = allNumCols.map(col => {
+        const x = cleanNum(df[col].values);
+        const y = valArr;
+        const paired = x.map((v, i) => [v, y[i]]).filter(([a, b]) => !isNaN(a) && !isNaN(b));
+        if (paired.length < 3) return null;
 
-            const avgX = safeMean(x), avgY = safeMean(y);
-            const cov = x.map((v, i) => (v - avgX) * (y[i] - avgY)).reduce((a, b) => a + b, 0) / n;
-            const stdX = Math.sqrt(x.map(v => (v - avgX) ** 2).reduce((a, b) => a + b, 0) / n);
-            const stdY = Math.sqrt(y.map(v => (v - avgY) ** 2).reduce((a, b) => a + b, 0) / n);
-            const corr = cov / (stdX * stdY);
-            return { col, corr };
-        }).filter(Boolean).sort((a, b) => Math.abs(b.corr) - Math.abs(a.corr));
+        const xVals = paired.map(p => p[0]);
+        const yVals = paired.map(p => p[1]);
 
-        if (correlations[0] && Math.abs(correlations[0].corr) > 0.4) {
-            insights.hypothesis.push(`📌 Feature '${correlations[0].col}' shows strong correlation (${correlations[0].corr.toFixed(2)}) with target.`);
-        }
+        const avgX = safeMean(xVals), avgY = safeMean(yVals);
+        const cov = xVals.map((v, i) => (v - avgX) * (yVals[i] - avgY)).reduce((a, b) => a + b, 0) / xVals.length;
+        const stdX = Math.sqrt(xVals.map(v => (v - avgX) ** 2).reduce((a, b) => a + b, 0) / xVals.length);
+        const stdY = Math.sqrt(yVals.map(v => (v - avgY) ** 2).reduce((a, b) => a + b, 0) / yVals.length);
+        const corr = cov / (stdX * stdY);
+        return { col, corr };
+    }).filter(Boolean).sort((a, b) => Math.abs(b.corr) - Math.abs(a.corr));
+
+    if (topCorr[0] && Math.abs(topCorr[0].corr) > 0.4) {
+        insights.hypothesis.push(`📌 Feature '${topCorr[0].col}' shows strong correlation (${topCorr[0].corr.toFixed(2)}) with '${valueCol}'.`);
     }
 
-    // Final fallback
     if (insights.hypothesis.length === 0) {
-        insights.hypothesis.push("⚠️ Not enough pattern in data. Add columns like date, outcome, or region for better insights.");
+        insights.hypothesis.push("⚠️ No strong signals found. Add outcome, region, or date columns.");
     }
 
     return insights;

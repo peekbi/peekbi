@@ -1,59 +1,48 @@
 const dfd = require("danfojs-node");
 const mlr = require("ml-regression").SimpleLinearRegression;
-const { safeSum, safeMean, safeMax, safeMedian } = require("../utils/statsUtils");
-const { groupByAndAggregate, trendAnalysis } = require("../helper");
+const {
+    safeSum, safeMean, safeMax, safeMedian
+} = require("../utils/statsUtils");
+const {
+    groupByAndAggregate, trendAnalysis, correlation
+} = require("../helper");
 
-// 🔍 Fuzzy column matching
-function fuzzyMatch(df, keywords, type = "string") {
-    const cols = df.columns;
-    const norm = cols.map(c => c.toLowerCase().replace(/\s|_/g, ''));
-    for (let idx = 0; idx < cols.length; idx++) {
-        for (const kw of keywords) {
-            if (norm[idx].includes(kw.toLowerCase())) {
-                const series = df[cols[idx]];
-                if (type === "number" && series.values.every(v => isNaN(parseFloat(v)))) continue;
-                return cols[idx];
-            }
-        }
-    }
-    return null;
+// ────────────── HELPERS ──────────────
+function cleanNum(values) {
+    return values
+        .map(v => (typeof v === "string" ? parseFloat(v) : v))
+        .filter(v => typeof v === "number" && !isNaN(v));
 }
 
-// Clean numeric values
-function cleanNum(vals) {
-    return Array.isArray(vals) ?
-        vals.map(v => parseFloat(v)).filter(v => !isNaN(v)) : [];
+function fuzzyMatch(df, keywords, type = "number") {
+    return df.columns.find(col => {
+        const norm = col.toLowerCase().replace(/[\s_]/g, "");
+        if (!keywords.some(k => norm.includes(k))) return false;
+        const isNumeric = df[col].values.some(v => !isNaN(parseFloat(v)));
+        return type === "number" ? isNumeric : true;
+    }) || null;
 }
 
-// Get first numeric column as fallback
-function getFirstNumericCol(df) {
-    for (const col of df.columns) {
-        if (cleanNum(df[col].values).length > 0) return col;
-    }
-    return null;
-}
-
-// Dynamic breakdown for categorical columns
-function dynamicBreakdown(df, valueCol, insights) {
-    df.columns.forEach(col => {
-        if (col === valueCol) return;
-        if (df[col].dtypes !== "object") return;
-        const unique = [...new Set(df[col].values)];
-        if (unique.length > 1 && unique.length <= 50) {
-            try {
-                const grp = groupByAndAggregate(df, col, valueCol, "sum").sortValues(valueCol, { ascending: false });
-                insights.highPerformers[`top_${col}`] = grp.head(3).toJSON();
-                insights.lowPerformers[`bottom_${col}`] = grp.tail(3).toJSON();
-                insights.totals[`by_${col}`] = grp.toJSON();
-                insights.hypothesis.push(`📌 Breakdown by '${col}' added.`);
-            } catch (e) {
-                insights.hypothesis.push(`⚠️ Breakdown by '${col}' failed: ${e.message}`);
-            }
-        }
+function guessCategorical(df, skipCols = []) {
+    return df.columns.filter(col => {
+        if (skipCols.includes(col)) return false;
+        const unique = new Set(df[col].values.map(v => v?.toString()?.trim())).size;
+        return unique > 1 && unique <= 50 && typeof df[col].values[0] === "string";
     });
 }
 
-// 🏭 Manufacturing Insights
+function deriveCategorical(df) {
+    for (const col of df.columns) {
+        const unique = new Set(df[col].values.map(v => v?.toString()?.trim()));
+        const ratio = unique.size / df.shape[0];
+        if (ratio < 0.5 && unique.size > 1 && unique.size <= 50) {
+            return col;
+        }
+    }
+    return null;
+}
+
+// ────────────── MAIN FUNCTION ──────────────
 function getManufacturingInsights(df) {
     const insights = {
         kpis: {},
@@ -61,87 +50,130 @@ function getManufacturingInsights(df) {
         lowPerformers: {},
         totals: {},
         trends: [],
-        hypothesis: [],
+        hypothesis: []
     };
 
-    const prodCol = fuzzyMatch(df, ["production", "volume", "units", "output"], "number") || getFirstNumericCol(df);
-    const qualityCol = fuzzyMatch(df, ["quality", "defect", "error", "reject"], "number");
-    const supplyCol = fuzzyMatch(df, ["supply", "delivery", "leadtime", "inventory"], "number");
-    const equipCol = fuzzyMatch(df, ["equipment", "machine", "uptime", "downtime"], "number");
+    // 🔍 Auto-detect columns
+    const prodCol = fuzzyMatch(df, ["produce", "unit", "output", "volume", "production"]);
+    const costCol = fuzzyMatch(df, ["cost", "expense", "spend"]);
+    const qualityCol = fuzzyMatch(df, ["quality", "defect", "error", "reject"]);
+    const machineCol = fuzzyMatch(df, ["machine", "equipment", "uptime", "downtime"]);
     const dateCol = fuzzyMatch(df, ["date", "period", "time", "timestamp"]);
-    const categoryCol = fuzzyMatch(df, ["line", "shift", "product", "department", "plant"]);
 
     if (!prodCol) {
-        insights.hypothesis.push("⚠️ No production volume column detected.");
-    } else {
-        insights.hypothesis.push(`✅ Production column: '${prodCol}'`);
-        const values = cleanNum(df[prodCol].values);
-        insights.kpis.total_production = safeSum(values);
-        insights.kpis.avg_production = safeMean(values);
-        insights.kpis.max_production = safeMax(values);
-        insights.kpis.median_production = safeMedian(values);
+        insights.hypothesis.push("⚠️ Missing production column — core insights not available.");
+        return insights;
     }
 
-    // Quality KPI
+    const prodVals = cleanNum(df[prodCol].values);
+    insights.kpis.total_production = safeSum(prodVals);
+    insights.kpis.avg_production = safeMean(prodVals);
+    insights.kpis.median_production = safeMedian(prodVals);
+    insights.kpis.max_production = safeMax(prodVals);
+    insights.hypothesis.push(`✅ Production detected in '${prodCol}'.`);
+
+    // 📉 Cost Metrics
+    if (costCol) {
+        const costVals = cleanNum(df[costCol].values);
+        insights.kpis.total_cost = safeSum(costVals);
+        insights.kpis.avg_cost = safeMean(costVals);
+        insights.kpis.max_cost = safeMax(costVals);
+
+        if (insights.kpis.total_production > 0) {
+            insights.kpis.cost_per_unit = (insights.kpis.total_cost / insights.kpis.total_production).toFixed(2);
+            insights.hypothesis.push("💰 Cost per unit calculated.");
+        }
+
+        if (costVals.length >= 3) {
+            const corr = correlation(df, prodCol, costCol);
+            insights.kpis.prod_cost_corr = corr.toFixed(2);
+            insights.hypothesis.push(`📈 Correlation (production vs cost): ${corr.toFixed(2)}`);
+        }
+    }
+
+    // ⚙️ Machine Metrics
+    if (machineCol) {
+        const vals = cleanNum(df[machineCol].values);
+        insights.kpis.avg_machine_metric = safeMean(vals);
+        if (safeSum(vals) > 0) {
+            insights.kpis.prod_per_machine_metric = (insights.kpis.total_production / safeSum(vals)).toFixed(2);
+            insights.hypothesis.push("⚙️ Production per machine-metric computed.");
+        }
+    }
+
+    // 🧪 Quality
     if (qualityCol) {
         const vals = cleanNum(df[qualityCol].values);
         insights.kpis.avg_quality_metric = safeMean(vals);
-        insights.kpis.max_quality_metric = safeMax(vals);
-        insights.hypothesis.push(`📏 Quality KPI from '${qualityCol}' computed.`);
+        insights.hypothesis.push(`🛠 Quality data from '${qualityCol}'.`);
     }
 
-    // Supply Efficiency
-    if (supplyCol) {
-        const vals = cleanNum(df[supplyCol].values);
-        insights.kpis.avg_supply = safeMean(vals);
-        insights.hypothesis.push(`🚚 Supply efficiency from '${supplyCol}' computed.`);
+    // 🧩 Categorical Breakdown
+    // 🧩 Categorical Breakdown — FORCE fallback if missing
+    let categoricalCols = guessCategorical(df, [prodCol, costCol, qualityCol, machineCol, dateCol]);
+    let catCol = categoricalCols.length > 0 ? categoricalCols[0] : deriveCategorical(df);
+
+    // Fallback: use any string-type column if no good match
+    if (!catCol) {
+        catCol = df.columns.find(col => typeof df[col].values[0] === "string");
+        if (catCol) insights.hypothesis.push(`⚠️ Fallback to first string column: '${catCol}'`);
     }
 
-    // Equipment Performance
-    if (equipCol) {
-        const vals = cleanNum(df[equipCol].values);
-        insights.kpis.avg_equipment = safeMean(vals);
-        insights.hypothesis.push(`⚙️ Equipment performance from '${equipCol}' computed.`);
-    }
+    if (catCol && df.columns.includes(catCol)) {
+        try {
+            const grouped = groupByAndAggregate(df, catCol, prodCol, "mean");
 
-    // Dynamic breakdown
-    if (prodCol) dynamicBreakdown(df, prodCol, insights);
+            if (grouped && grouped.shape[0] > 0) {
+                const sorted = grouped.sortValues(prodCol, { ascending: false });
 
-    // Time trend & forecasting
-    if (dateCol && prodCol && df.shape[0] >= 3) {
-        const trend = trendAnalysis(df, dateCol, prodCol);
-        insights.trends = trend;
-        insights.hypothesis.push("📈 Trend analysis on production done.");
+                // 🔧 Properly convert to array of rows (not object of arrays!)
+                const json = sorted.values.map((row, idx) => {
+                    const obj = {};
+                    sorted.columns.forEach((col, i) => {
+                        obj[col] = row[i];
+                    });
+                    return obj;
+                });
 
-        const values = trend.map(r => r.avg);
-        const growth = [];
-        for (let i = 1; i < values.length; i++) {
-            if (values[i - 1]) growth.push((values[i] - values[i - 1]) / values[i - 1] * 100);
-        }
-        if (growth.length) {
-            insights.kpis.avg_growth_rate = safeMean(growth).toFixed(2) + "%";
-            insights.hypothesis.push("📈 Production growth rate calculated.");
-        }
-
-        // Forecast
-        const subset = df.loc({ columns: [dateCol, prodCol] }).dropNa();
-        const years = subset[dateCol].values.map((_, i) => i);
-        const vals = cleanNum(subset[prodCol].values);
-
-        if (vals.length >= 3) {
-            try {
-                const reg = new mlr(years, vals);
-                const pred = reg.predict(vals.length);
-                insights.kpis.predicted_next_period_production = pred.toFixed(2);
-                insights.hypothesis.push("🔮 Forecasted next period production.");
-            } catch (e) {
-                insights.hypothesis.push("⚠️ Forecast failed: " + e.message);
+                insights.totals[`production_by_${catCol}`] = json;
+                insights.highPerformers[`top_${catCol}`] = json.slice(0, 3);
+                insights.lowPerformers[`bottom_${catCol}`] = json.slice(-3);
+                insights.hypothesis.push(`🏷 Breakdown by '${catCol}' successful.`);
+            } else {
+                insights.totals[`production_by_${catCol}`] = [];
+                insights.highPerformers[`top_${catCol}`] = [];
+                insights.lowPerformers[`bottom_${catCol}`] = [];
+                insights.hypothesis.push(`⚠️ Grouping returned no data for '${catCol}'.`);
             }
+        } catch (err) {
+            insights.hypothesis.push(`⚠️ Error during breakdown by '${catCol}': ${err.message}`);
+        }
+    } else {
+        insights.hypothesis.push("⚠️ No valid column found for breakdown. `totals`, `highPerformers`, `lowPerformers` skipped.");
+    }
+
+    // 📅 Trend + Forecast
+    if (dateCol && df.shape[0] >= 3) {
+        try {
+            const trends = trendAnalysis(df, dateCol, prodCol);
+            insights.trends = trends;
+            insights.hypothesis.push(`📅 Trends detected over '${dateCol}'.`);
+
+            const y = trends.map(r => r.avg).filter(v => v !== null);
+            if (y.length >= 3) {
+                const reg = new mlr([...Array(y.length).keys()], y);
+                const next = reg.predict(y.length);
+                insights.kpis.next_period_forecast = next.toFixed(2);
+                insights.hypothesis.push("🔮 Forecast for next period calculated.");
+            }
+        } catch (err) {
+            insights.hypothesis.push(`⚠️ Trend/forecast error: ${err.message}`);
         }
     }
 
-    if (insights.hypothesis.length === 0) {
-        insights.hypothesis.push("⚠️ No insights could be generated. Add production, date, or category columns.");
+    // ✅ Ensure non-empty response
+    if (Object.keys(insights.highPerformers).length === 0) {
+        insights.hypothesis.push("⚠️ No high/low performer insights generated.");
     }
 
     return insights;

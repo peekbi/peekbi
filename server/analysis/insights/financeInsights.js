@@ -1,143 +1,78 @@
 const dfd = require("danfojs-node");
-const { groupByAndAggregate, trendAnalysis } = require("../helper");
-const { safeSum, safeMean, safeMedian } = require("../utils/statsUtils");
-const mlr = require("ml-regression").SimpleLinearRegression; // npm i ml-regression
-// ===================== UTILS =========================
+const mlr = require("ml-regression").SimpleLinearRegression;
+const { safeSum, safeMean, safeMedian, safeMax } = require("../utils/statsUtils");
+const { trendAnalysis, groupByAndAggregate } = require("../helper");
 
-function fuzzyMatchColumn(df, keywords) {
-    const lowerCols = df.columns.map(c => c.toLowerCase());
-    for (const keyword of keywords) {
-        for (let i = 0; i < lowerCols.length; i++) {
-            if (lowerCols[i].includes(keyword)) return df.columns[i];
-        }
-    }
-    return null;
+// ────────────── HELPER FUNCTIONS ──────────────
+function cleanNum(values) {
+    return values
+        .map(v => (typeof v === "string" ? parseFloat(v) : v))
+        .filter(v => typeof v === "number" && !isNaN(v));
 }
 
-function guessNumericColumn(df, exclude = []) {
-    let bestCol = null;
-    let maxSum = -Infinity;
+function fuzzyMatch(df, keywords, type = "number") {
+    return df.columns.find(col => {
+        const norm = col.toLowerCase().replace(/[\s_]/g, "");
+        const isNumeric = df[col].values.some(v => !isNaN(parseFloat(v)));
+        return keywords.some(k => norm.includes(k)) && (type === "number" ? isNumeric : true);
+    }) || null;
+}
 
+function guessCategorical(df, skipCols = []) {
+    return df.columns.filter(col => {
+        if (skipCols.includes(col)) return false;
+        const values = df[col].values.map(v => v?.toString()?.trim());
+        const unique = new Set(values).size;
+        return unique > 1 && unique <= 50 && typeof df[col].values[0] === "string";
+    });
+}
+
+function deriveCategorical(df) {
     for (const col of df.columns) {
-        if (exclude.includes(col)) continue;
-        const numericVals = cleanNum(df[col].values);
-        const sum = numericVals.reduce((acc, val) => acc + val, 0);
-
-        if (numericVals.length / df[col].values.length > 0.7 && sum > maxSum) {
-            bestCol = col;
-            maxSum = sum;
+        const values = df[col].values.map(v => v?.toString()?.trim());
+        const unique = new Set(values);
+        const ratio = unique.size / df.shape[0];
+        if (ratio < 0.5 && unique.size > 1 && unique.size <= 50) {
+            return col;
         }
     }
-
-    return bestCol;
-}
-
-function detectColumn(df, intent, excludeCols = []) {
-    const heuristics = {
-        revenue: ['revenue', 'sales', 'income', 'budget', 'amount'],
-        expenses: ['expense', 'loss', 'cost', 'spending'],
-        department: ['department', 'category', 'sector', 'division'],
-        date: ['date', 'period', 'timestamp', 'order'],
-        metric: ['metric', 'type', 'subject', 'series'],
-    };
-
-    const match = fuzzyMatchColumn(df, heuristics[intent] || []);
-    if (match) return match;
-
-    if (intent === 'revenue' || intent === 'expenses') {
-        return guessNumericColumn(df, excludeCols);
-    }
-
     return null;
 }
 
-function cleanNum(vals) {
-    return Array.isArray(vals)
-        ? vals.map(v => typeof v === 'string' ? parseFloat(v) : v).filter(v => typeof v === 'number' && !isNaN(v))
-        : [];
-}
-
-// ===================== KPI BUILDERS =========================
-
-function buildRevenueKPIs(df, revenueCol) {
-    const revenueVals = cleanNum(df[revenueCol]?.values ?? []);
-    return {
-        total_revenue: safeSum(revenueVals),
-        avg_revenue: safeMean(revenueVals),
-        median_revenue: safeMedian(revenueVals)
-    };
-}
-
-function buildExpenseKPIs(df, expensesCol) {
-    const expensesVals = cleanNum(df[expensesCol]?.values ?? []);
-    return {
-        total_expenses: safeSum(expensesVals),
-        avg_expenses: safeMean(expensesVals),
-    };
-}
-
-function buildNetProfitKPIs(revenueVals, expensesVals) {
-    const totalRevenue = safeSum(revenueVals);
-    const totalExpenses = safeSum(expensesVals);
-    return {
-        net_profit: totalRevenue - totalExpenses
-    };
-}
-
-// ===================== MAIN =========================
-
+// ────────────── MAIN FUNCTION ──────────────
 function getFinanceInsights(df) {
     const insights = {
         kpis: {},
         highPerformers: {},
         lowPerformers: {},
-        hypothesis: [],
         totals: {},
         trends: [],
+        hypothesis: []
     };
 
-    // === Detect columns
-    let revenueCol = detectColumn(df, 'revenue');
-    let expensesCol = detectColumn(df, 'expenses', [revenueCol]);
-    let deptCol = detectColumn(df, 'department');
-    let dateCol = detectColumn(df, 'date');
-    let metricCol = detectColumn(df, 'metric');
+    const revenueCol = fuzzyMatch(df, ["revenue", "sales", "amount", "income", "checking", "transaction"]);
+    const expenseCol = fuzzyMatch(df, ["expense", "cost", "spend", "debit", "withdrawal"]);
+    const dateCol = fuzzyMatch(df, ["date", "timestamp", "period", "time"]);
+    const metricCol = fuzzyMatch(df, ["metric", "type", "category", "label"], "string");
 
     if (!revenueCol) {
-        console.warn("⚠️ Revenue column not detected. Defaulting to best numeric column.");
-        revenueCol = guessNumericColumn(df);
+        insights.hypothesis.push("⚠️ Revenue column not found.");
+        return insights;
     }
 
-    const revenueVals = cleanNum(df[revenueCol]?.values ?? []);
-    const expensesVals = expensesCol ? cleanNum(df[expensesCol]?.values ?? []) : [];
+    const revenueVals = cleanNum(df[revenueCol].values);
+    const expenseVals = expenseCol ? cleanNum(df[expenseCol].values) : [];
 
-    // === KPIs
-    Object.assign(insights.kpis, buildRevenueKPIs(df, revenueCol));
+    insights.kpis.total_revenue = safeSum(revenueVals);
+    insights.kpis.avg_revenue = safeMean(revenueVals);
+    insights.kpis.median_revenue = safeMedian(revenueVals);
+    insights.kpis.max_revenue = safeMax(revenueVals);
 
-    if (expensesCol) {
-        Object.assign(insights.kpis, buildExpenseKPIs(df, expensesCol));
-        Object.assign(insights.kpis, buildNetProfitKPIs(revenueVals, expensesVals));
-    }
-
-    // === Grouped totals
-    if (deptCol) {
-        const grouped = groupByAndAggregate(df, deptCol, revenueCol, 'sum');
-        if (grouped?.shape[0]) {
-            grouped.sortValues(revenueCol, { ascending: false, inplace: true });
-            insights.highPerformers = dfd.toJSON(grouped.head(3), { format: "row" });
-            insights.lowPerformers = dfd.toJSON(grouped.tail(3), { format: "row" });
-            insights.totals.revenue_by_department = dfd.toJSON(grouped, { format: "row" });
-        }
-    }
-
-    // === Trends
-    if (dateCol && df.shape[0] < 10000) {
-        insights.trends = trendAnalysis(df, dateCol, revenueCol);
-    }
-
-    // === Hypotheses
-    if (expensesCol) {
-        insights.hypothesis.push("📊 Analyze if departments with high revenue also incur high expenses.");
+    if (expenseVals.length) {
+        insights.kpis.total_expenses = safeSum(expenseVals);
+        insights.kpis.avg_expenses = safeMean(expenseVals);
+        insights.kpis.net_profit = (insights.kpis.total_revenue - insights.kpis.total_expenses).toFixed(2);
+        insights.hypothesis.push("📊 Analyzed relationship between revenue and expenses.");
     } else {
         insights.hypothesis.push("💡 Only revenue data available; no expense analysis.");
     }
@@ -145,72 +80,95 @@ function getFinanceInsights(df) {
     if (metricCol) {
         try {
             const metrics = df[metricCol].unique().values;
-            insights.hypothesis.push(`🧾 Dataset includes metrics: ${metrics.slice(0, 3).join(', ')}${metrics.length > 3 ? ', ...' : ''}`);
-        } catch (err) {
-            insights.hypothesis.push("⚠️ Unable to extract metric values.");
+            insights.hypothesis.push(`🧾 Metric values: ${metrics.slice(0, 3).join(", ")}${metrics.length > 3 ? ", ..." : ""}`);
+        } catch {
+            insights.hypothesis.push("⚠️ Metric column exists but could not extract values.");
         }
-    } else {
-        insights.hypothesis.push("⚠️ No metric column found.");
     }
-    // === Growth Rate Over Time
-    if (dateCol && revenueCol) {
+
+    let catColList = guessCategorical(df, [revenueCol, expenseCol, dateCol, metricCol]);
+    let catCol = catColList.length ? catColList[0] : deriveCategorical(df);
+
+    if (!catCol) {
+        catCol = df.columns.find(col => typeof df[col].values[0] === "string");
+        if (catCol) insights.hypothesis.push(`⚠️ Fallback to string column: '${catCol}'`);
+    }
+
+    if (catCol && revenueCol) {
+        try {
+            const grouped = groupByAndAggregate(df, catCol, revenueCol, "mean");
+
+            if (grouped.shape[0] > 0) {
+                const sorted = grouped.sortValues(revenueCol, { ascending: false });
+                const json = sorted.values.map(row => {
+                    const obj = {};
+                    sorted.columns.forEach((col, i) => obj[col] = row[i]);
+                    return obj;
+                });
+
+                insights.totals[`revenue_by_${catCol}`] = json;
+                insights.highPerformers[`top_${catCol}`] = json.slice(0, 3);
+                insights.lowPerformers[`bottom_${catCol}`] = json.slice(-3);
+                insights.hypothesis.push(`🏷 Grouped by '${catCol}' for revenue insights.`);
+            }
+        } catch (err) {
+            insights.hypothesis.push(`⚠️ Grouping failed on '${catCol}': ${err.message}`);
+        }
+    }
+
+    if (dateCol && revenueVals.length >= 2) {
         try {
             const dfCopy = df.loc({ columns: [dateCol, revenueCol] }).dropNa();
             const sorted = dfCopy.sortValues(dateCol);
-            const dates = sorted[dateCol].values;
-            const revenues = cleanNum(sorted[revenueCol].values);
-
+            const revs = cleanNum(sorted[revenueCol].values);
             const growthRates = [];
-            for (let i = 1; i < revenues.length; i++) {
-                const rate = ((revenues[i] - revenues[i - 1]) / revenues[i - 1]) * 100;
-                if (!isNaN(rate) && isFinite(rate)) growthRates.push(rate);
+
+            for (let i = 1; i < revs.length; i++) {
+                const prev = revs[i - 1] || 1;
+                const rate = ((revs[i] - prev) / prev) * 100;
+                if (isFinite(rate)) growthRates.push(rate);
             }
 
             if (growthRates.length) {
-                insights.kpis.revenue_growth_rate_avg = (safeMean(growthRates)).toFixed(2) + '%';
-                insights.kpis.revenue_growth_rate_median = (safeMedian(growthRates)).toFixed(2) + '%';
-                insights.hypothesis.push("📈 Revenue growth trend calculated from time series.");
+                insights.kpis.revenue_growth_rate_avg = safeMean(growthRates).toFixed(2) + "%";
+                insights.kpis.revenue_growth_rate_median = safeMedian(growthRates).toFixed(2) + "%";
+                insights.hypothesis.push("📈 Revenue growth rate calculated.");
             }
-        } catch (err) {
-            insights.hypothesis.push("⚠️ Revenue growth rate couldn't be computed.");
+        } catch {
+            insights.hypothesis.push("⚠️ Revenue growth rate failed.");
         }
     }
 
-    // === Revenue vs Budget Comparison
-    const budgetCol = detectColumn(df, 'revenue', [revenueCol]); // second numeric column
-    if (budgetCol && budgetCol !== revenueCol) {
-        const budgetVals = cleanNum(df[budgetCol].values ?? []);
-        const revenueTotal = safeSum(revenueVals);
-        const budgetTotal = safeSum(budgetVals);
-        const diff = revenueTotal - budgetTotal;
-        const pctDiff = ((diff / (budgetTotal || 1)) * 100).toFixed(2);
-
-        insights.kpis.total_budget = budgetTotal;
-        insights.kpis.budget_variance = diff;
-        insights.kpis.budget_vs_actual_pct = pctDiff + '%';
-
-        insights.hypothesis.push(`💰 Revenue is ${pctDiff}% ${diff >= 0 ? 'above' : 'below'} budget.`);
-    }
-
-    // === Revenue Forecast (Next Time Period)
-    if (dateCol && revenueCol) {
+    if (dateCol && revenueVals.length >= 3) {
         try {
             const dfTime = df.loc({ columns: [dateCol, revenueCol] }).dropNa();
             const sorted = dfTime.sortValues(dateCol);
-            const x = Array.from({ length: sorted.shape[0] }, (_, i) => i); // simple time index
+            const x = [...Array(sorted.shape[0]).keys()];
             const y = cleanNum(sorted[revenueCol].values);
 
-            if (x.length >= 3) {
+            if (y.length >= 3) {
                 const reg = new mlr(x, y);
-                const nextIndex = x.length;
-                const forecast = reg.predict(nextIndex);
-
-                insights.kpis.revenue_forecast_next_period = forecast.toFixed(2);
-                insights.hypothesis.push("🔮 Forecasted revenue for next period using linear regression.");
+                const next = reg.predict(x.length);
+                insights.kpis.revenue_forecast_next_period = next.toFixed(2);
+                insights.hypothesis.push("🔮 Forecast for next period generated.");
             }
         } catch (err) {
-            insights.hypothesis.push("⚠️ Forecasting failed: " + err.message);
+            insights.hypothesis.push(`⚠️ Forecasting error: ${err.message}`);
         }
+    }
+
+    if (dateCol && df.shape[0] >= 3) {
+        try {
+            const trends = trendAnalysis(df, dateCol, revenueCol);
+            insights.trends = trends;
+            insights.hypothesis.push(`📅 Trend analysis on '${dateCol}' completed.`);
+        } catch {
+            insights.hypothesis.push("⚠️ Trend analysis failed.");
+        }
+    }
+
+    if (!Object.keys(insights.highPerformers).length) {
+        insights.hypothesis.push("⚠️ No top/bottom performers detected.");
     }
 
     return insights;

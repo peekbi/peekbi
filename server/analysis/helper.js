@@ -127,11 +127,11 @@ function trendAnalysis(df, dateCol, valueCol) {
 
         return {
             date,
-            total_sales: total,
-            avg_sales: avg,
-            order_count: orderCount,
-            avg_order_value: avgOrderValue,
-            cumulative_sales: cumulative,
+            total: total,
+            avg: avg,
+            count: orderCount,
+            avg_value: avgOrderValue,
+            cumulative_: cumulative,
             change_percent: parseFloat(change.toFixed(2))
         };
     });
