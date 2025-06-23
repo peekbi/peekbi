@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-
+const PLAN_DEFAULTS = require('../utils/planDefaults');
 const planSchema = new mongoose.Schema(
     {
         name: {
@@ -23,17 +23,21 @@ const planSchema = new mongoose.Schema(
         },
 
         limits: {
-            maxReports: Number,
-            maxCharts: Number,
+            uploads: Number,
+            download: Number,
+            analyse: Number,
+            aiPromts: Number,
+            reports: Number,
+            charts: Number,
             maxUsersPerAccount: Number,
             dataRetentionDays: Number,
         },
         features: {
-            scheduleReports: Boolean,
-            exportAsPDF: Boolean,
-            shareableDashboards: Boolean,
-            emailSupport: Boolean,
-            prioritySupport: Boolean,
+            scheduleReports: { type: Boolean, default: false },
+            exportAsPDF: { type: Boolean, default: false },
+            shareableDashboards: { type: Boolean, default: false },
+            emailSupport: { type: Boolean, default: true },
+            prioritySupport: { type: Boolean, default: false },
         },
 
 
@@ -46,5 +50,14 @@ const planSchema = new mongoose.Schema(
         timestamps: true,
     }
 );
+// Auto-populate limits/features before save
+planSchema.pre('validate', function (next) {
+    const defaults = PLAN_DEFAULTS[this.name];
+    if (defaults) {
+        this.limits = defaults.limits;
+        this.features = defaults.features;
+    }
+    next();
+});
 
 module.exports = mongoose.model('Plan', planSchema);

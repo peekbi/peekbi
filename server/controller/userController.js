@@ -1,9 +1,8 @@
 const userModel = require('../model/userModel');
 const planModel = require('../model/planModel');
-const userSubscriptionModel = require('../model/userSubscriptionModel');
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
+const moment = require('moment');
 const { generateToken } = require('../utils/generateToken');
 dotenv.config();
 
@@ -35,19 +34,36 @@ module.exports.registerUser = async (req, res) => {
                 price: 0,
                 isActive: true,
                 billingInterval: 'monthly',
-                features: {
-                    maxReports: 5,
-                    maxCharts: 10,
-                    scheduleReports: false,
+                limits: {
+                    download: 3,
+                    uploads: 3,
+                    analyse: 3,
+                    aiPromts: 3,
+                    reports: 8,
+                    charts: 8,
+                    maxUsersPerAccount: 1,
+                    dataRetentionDays: 30,
                 },
             });
         }
+
+        // 📌 Calculate currentPeriodEnd based on billingInterval
+        let currentPeriodEnd = null;
+        const now = moment();
+
+        switch (plan.billingInterval) {
+            case 'monthly':
+                currentPeriodEnd = now.clone().add(1, 'month').toDate();
+                break;
+            case 'yearly':
+                currentPeriodEnd = now.clone().add(1, 'year').toDate();
+                break;
+            case 'lifetime':
+                currentPeriodEnd = null; // No expiration for lifetime plans
+                break;
+        }
         //    generate token 
-
-
         const hashedPassword = await bcrypt.hash(password, 10);
-
-
         const newUser = new userModel({
             name,
             password: hashedPassword,
@@ -57,6 +73,7 @@ module.exports.registerUser = async (req, res) => {
             role: 'user',
             plan: plan._id,
             subscriptionStatus: 'trialing',
+            currentPeriodEnd,
         });
 
         await newUser.save();

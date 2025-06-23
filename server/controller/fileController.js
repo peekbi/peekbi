@@ -6,7 +6,7 @@ const streamToBuffer = require('../utils/streamToBuffer');
 const { encryptBuffer, decryptBuffer } = require('../utils/encryption');
 const analysis = require('../analysis');
 const BUCKET_NAME = 'peekbi-usersfiles'; // One bucket for all users
-// 🚀 Upload File (Excel ➝ Clean JSON ➝ Encrypt ➝ Upload)
+// 🚀 Upload File (Excel ➝ Clean JSON ➝ Encrypt ➝ Upload);
 
 exports.uploadFile = async (req, res) => {
     const userId = req.params.userId;
@@ -51,7 +51,12 @@ exports.uploadFile = async (req, res) => {
         });
 
         await userDoc.save();
-
+        // ✅ Increment usage count if usage tracking is attached by middleware
+        if (req.planUsage && req.planUsage.featureKey === 'uploads') {
+            const { usage } = req.planUsage;
+            usage.uploads = (usage.uploads || 0) + 1;
+            await usage.save();
+        }
         res.status(200).json({
             success: true,
             message: 'File uploaded and processed successfully.',
@@ -93,7 +98,12 @@ exports.performAnalysis = async (req, res) => {
         fileEntry.analysis = { summary, insights };
         fileEntry.uploadedAt = new Date();
         await userDoc.save();
-
+        // ✅ Increment usage count if usage tracking is attached by middleware
+        if (req.planUsage && req.planUsage.featureKey === 'analyse') {
+            const { usage } = req.planUsage;
+            usage.analyse = (usage.analyse || 0) + 1;
+            await usage.save();
+        }
         return res.status(200).json({
             success: true,
             message: 'Analysis performed successfully.',
@@ -221,3 +231,21 @@ exports.getFileAnalysisById = async (req, res) => {
     }
 };
 
+exports.incrementAIPromptUsage = async (req, res) => {
+    try {
+        const { usage, featureKey } = req.planUsage || {};
+
+        if (!usage || featureKey !== 'aiPromts') {
+            return res.status(400).json({ message: 'Invalid usage tracking setup.' });
+        }
+        // 🚀 Place your AI logic here (e.g., send to OpenAI)
+        // ✅ Increment usage count
+        usage[featureKey] = (usage[featureKey] || 0) + 1;
+        await usage.save();
+
+        return res.status(200).json({ message: 'AI prompt used successfully', usage: usage[featureKey] });
+    } catch (err) {
+        console.error("AI Prompt Controller Error:", err);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};

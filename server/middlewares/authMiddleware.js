@@ -30,7 +30,12 @@ module.exports = async (req, res, next) => {
 
     try {
         const decoded = await verifyToken(token);
-        req.user = decoded;
+        req.user = {
+            userId: decoded.id || decoded._id,
+            email: decoded.email,
+            _id: decoded.id || decoded._id, // optional
+            role: decoded.role || 'user',   // provide fallback
+        };
         next();
     } catch (err) {
         console.error("AuthMiddleware Error:", err.message);

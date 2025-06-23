@@ -33,10 +33,10 @@ const allowedOrigins = [
 ].filter(Boolean); // Remove any undefined values
 
 app.use(cors({
-    origin: function(origin, callback) {
+    origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        
+
         if (allowedOrigins.indexOf(origin) === -1) {
             const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
             return callback(new Error(msg), false);
@@ -50,7 +50,7 @@ app.use(cors({
 // Global error handler for multer and custom errors
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    
+
     if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ error: 'File size exceeds 5 MB limit.' });
     }
@@ -59,9 +59,9 @@ app.use((err, req, res, next) => {
         return res.status(400).json({ error: err.message });
     }
 
-    return res.status(500).json({ 
-        error: 'Something went wrong', 
-        message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
+    return res.status(500).json({
+        error: 'Something went wrong',
+        message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
     });
 });
 
@@ -120,7 +120,7 @@ app.get('/health', (req, res) => {
 
 app.use('/users', userRouter);
 app.use('/admin', adminRouter);
-app.use('/subscription', subscriptionRouter);
+app.use('/subscribe', subscriptionRouter);
 app.use('/plan', planRouter);
 app.use('/files', fileRoutes);
 

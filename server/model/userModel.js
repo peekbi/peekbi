@@ -73,16 +73,6 @@ const userSchema = new mongoose.Schema(
             default: null,
         },
 
-        // Activity tracking
-        reportCount: {
-            type: Number,
-            default: 0,
-        },
-        chartCount: {
-            type: Number,
-            default: 0,
-        },
-
         createdAt: {
             type: Date,
             default: Date.now,

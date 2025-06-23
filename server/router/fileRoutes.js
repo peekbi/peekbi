@@ -1,8 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const authorization = require('../middlewares/authMiddleware');
-const { uploadFile, getAllFiles, getSignedDownloadUrl, downloadUserFile, getFileAnalysis, getFileAnalysisById, performAnalysis } = require('../controller/fileController');
-
+const planMiddleware = require('../middlewares/planMiddleware');
+const { uploadFile, getAllFiles, getSignedDownloadUrl, downloadUserFile, getFileAnalysis, getFileAnalysisById, performAnalysis, incrementAIPromptUsage } = require('../controller/fileController');
 const router = express.Router();
 
 const upload = require('../middlewares/uploadMiddlware');
@@ -13,7 +13,7 @@ router.use((req, res, next) => {
 });
 
 // Handle upload errors safely here
-router.post('/upload/:userId', authorization, (req, res, next) => {
+router.post('/upload/:userId', authorization, planMiddleware('uploads'), (req, res, next) => {
     upload.single('file')(req, res, (err) => {
         if (err) {
             if (err.code === 'LIMIT_FILE_SIZE') {
@@ -29,9 +29,10 @@ router.post('/upload/:userId', authorization, (req, res, next) => {
     });
 });
 router.get('/all/:userId', authorization, getAllFiles);
-router.get('/download/:userId/:fileId', authorization, performAnalysis);
-router.get('/analyse/:userId/:fileId', authorization, performAnalysis);
-
+router.get('/download/:userId/:fileId', authorization, planMiddleware('analyse'), performAnalysis);
+router.get('/analyse/:userId/:fileId', authorization, planMiddleware('analyse'), performAnalysis);
+// You must authenticate user and attach user object to req.user before this
+router.post('/promts', authorization, planMiddleware('aiPromts'), incrementAIPromptUsage);
 
 
 
