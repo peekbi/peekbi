@@ -8,36 +8,36 @@ function safeSum(values) {
     return nums.reduce((a, b) => a + b, 0);
 }
 
-/**
- * Safely computes mean (average) for numeric values.
- */
 function safeMean(values) {
     const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
     return nums.length ? ss.mean(nums) : 0;
 }
 
-/**
- * Safely computes the median for numeric values.
- */
 function safeMedian(values) {
     const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
     return nums.length ? ss.median(nums) : 0;
 }
 
-/**
- * Safely computes the maximum value.
- */
 function safeMax(values) {
     const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
     return nums.length ? ss.max(nums) : 0;
 }
 
-/**
- * Safely computes the minimum value.
- */
 function safeMin(values) {
     const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
     return nums.length ? ss.min(nums) : 0;
+}
+
+/**
+ * Safely computes the min/max date and range in days.
+ */
+function safeDateRange(values) {
+    const dates = values.map(v => new Date(v)).filter(d => !isNaN(d));
+    if (dates.length === 0) return null;
+    const min = new Date(Math.min(...dates));
+    const max = new Date(Math.max(...dates));
+    const rangeDays = (max - min) / (1000 * 60 * 60 * 24);
+    return { min, max, rangeDays };
 }
 
 module.exports = {
@@ -46,4 +46,5 @@ module.exports = {
     safeMedian,
     safeMax,
     safeMin,
+    safeDateRange,
 };

@@ -1,25 +1,22 @@
 const dfd = require("danfojs-node");
 const mlr = require("ml-regression").SimpleLinearRegression;
-const { safeSum, safeMean, safeMax, safeMedian } = require("../utils/statsUtils");
 const { groupByAndAggregate, trendAnalysis } = require("../helper");
+const { safeSum, safeMean, safeMax, safeMedian } = require("../utils/statsUtils");
 
-// 🧼 Clean number array
 function cleanNum(vals) {
     return Array.isArray(vals)
         ? vals.map(v => parseFloat(v)).filter(v => !isNaN(v))
         : [];
 }
 
-// 🔍 Fuzzy match helper
 function fuzzyMatch(df, keywords, type = "string") {
-    const columns = df.columns;
-    const normalized = columns.map(c => c.toLowerCase().replace(/\s|_/g, ''));
+    const normalizedCols = df.columns.map(c => c.toLowerCase().replace(/\s|_/g, ""));
     for (const key of keywords) {
-        const k = key.toLowerCase();
-        for (let i = 0; i < normalized.length; i++) {
-            const col = columns[i];
+        const keyNorm = key.toLowerCase().replace(/\s|_/g, "");
+        for (let i = 0; i < normalizedCols.length; i++) {
+            const col = df.columns[i];
             const series = df[col];
-            if (normalized[i].includes(k)) {
+            if (normalizedCols[i].includes(keyNorm)) {
                 if (type === "number" && !series.values.some(v => !isNaN(parseFloat(v)))) continue;
                 return col;
             }
@@ -28,182 +25,214 @@ function fuzzyMatch(df, keywords, type = "string") {
     return null;
 }
 
-// ✅ First numeric column fallback
-function getFirstNumericCol(df) {
-    for (const col of df.columns) {
-        const vals = df[col].values;
-        if (vals.some(v => !isNaN(parseFloat(v)))) return col;
-    }
-    return null;
-}
-
-// 🔧 Safe .toJSON conversion to row objects
 function toRowJSON(df) {
-    return df.values.map((row, idx) => {
+    return df.values.map((row, i) => {
         const obj = {};
-        df.columns.forEach((col, i) => {
-            obj[col] = row[i];
-        });
+        df.columns.forEach((col, j) => obj[col] = row[j]);
         return obj;
     });
 }
 
-// 🔁 Dynamic breakdown by small-cardinality strings
-function dynamicBreakdown(df, valueCol, insights) {
-    df.columns.forEach(col => {
-        if (col === valueCol) return;
-
-        const series = df[col];
-        if (!series || series.dtypes !== "object") return;
-
-        const uniqueCount = new Set(series.values).size;
-        if (uniqueCount < 50 && uniqueCount > 1) {
-            try {
-                const grouped = groupByAndAggregate(df, col, valueCol, "sum");
-                const sorted = grouped.sortValues(valueCol, { ascending: false });
-
-                const rows = toRowJSON(sorted);
-                const key = col.toLowerCase().replace(/\s+/g, '_');
-
-                insights.highPerformers[`top_${key}`] = rows.slice(0, 3);
-                insights.lowPerformers[`bottom_${key}`] = rows.slice(-3);
-                insights.totals[`cases_by_${key}`] = rows;
-                insights.hypothesis.push(`📌 Insight breakdown by '${col}' with ${uniqueCount} unique values.`);
-            } catch (err) {
-                insights.hypothesis.push(`⚠️ Failed breakdown on '${col}': ${err.message}`);
-            }
-        }
-    });
-}
-
-// 🧠 Core Insight Generator
 function getHealthcareInsights(df) {
     const insights = {
-        kpis: {
-            total_cases: 0,
-            avg_cases: 0,
-            median_cases: 0,
-            max_cases: 0,
-        },
-        highPerformers: {},
-        lowPerformers: {},
+        kpis: {},
+        trends: {},
+        breakdowns: {},
+        correlations: [],
         hypothesis: [],
+        forecasts: {},
         totals: {},
-        trends: [],
+        highPerformers: {},
+        lowPerformers: {}
     };
 
-    // 🔍 Auto-detect columns
-    const valueCol = fuzzyMatch(df, ["value", "cases", "charges", "amount", "count", "number", "insulin", "glucose", "bmi"], "number") || getFirstNumericCol(df);
-    const categoryCol = fuzzyMatch(df, ["injury", "disease", "outcome", "condition", "group", "result", "category"]);
-    const regionCol = fuzzyMatch(df, ["region", "state", "zone", "location", "area"]);
-    const yearCol = fuzzyMatch(df, ["year", "date", "period", "timestamp"]);
-    const occupationCol = fuzzyMatch(df, ["occupation", "job", "role"]);
-    const industryCol = fuzzyMatch(df, ["industry", "sector"]);
+    const match = (keywords, type = "string") => fuzzyMatch(df, keywords, type);
 
-    if (!valueCol) {
-        insights.hypothesis.push("⚠️ No numeric value column detected.");
-        return insights;
-    }
+    const admissionCol = match(["admission", "visit", "encounter"], "number");
+    const departmentCol = match(["department", "unit", "ward"]);
+    const diseaseCol = match(["disease", "diagnosis", "condition", "icd"]);
+    const treatmentCol = match(["treatment", "therapy", "procedure"]);
+    const outcomeCol = match(["outcome", "result", "status"]);
+    const bedCol = match(["bed", "occupancy", "room"], "number");
+    const staffCol = match(["staff", "nurse", "doctor", "personnel"]);
+    const equipmentCol = match(["equipment", "machine", "device"]);
+    const insuranceCol = match(["insurance", "payer", "claim"]);
+    const medicationCol = match(["medication", "drug", "prescription", "rx"]);
+    const dateCol = match(["date", "admission date", "timestamp", "period"]);
 
-    insights.hypothesis.push(`✅ Value column used: '${valueCol}'`);
-    const valArr = cleanNum(df[valueCol].values);
-
-    // 🎯 KPIs
-    insights.kpis.total_cases = safeSum(valArr);
-    insights.kpis.avg_cases = safeMean(valArr);
-    insights.kpis.median_cases = safeMedian(valArr);
-    insights.kpis.max_cases = safeMax(valArr);
-    insights.hypothesis.push("📊 KPIs computed.");
-
-    // 🧩 Breakdown Helper
-    function breakdown(col, label) {
+    // 1. Admissions by department
+    if (admissionCol && departmentCol) {
         try {
-            const grouped = groupByAndAggregate(df, col, valueCol, "sum");
-            const sorted = grouped.sortValues(valueCol, { ascending: false });
-            const rows = toRowJSON(sorted);
+            const grouped = groupByAndAggregate(df, departmentCol, admissionCol, "sum");
+            const rows = toRowJSON(grouped);
+            insights.breakdowns.admissions_by_department = rows;
+            insights.hypothesis.push("📌 Admission trends analyzed by department.");
 
-            insights.highPerformers[`top_${label}`] = rows.slice(0, 3);
-            insights.lowPerformers[`bottom_${label}`] = rows.slice(-3);
-            insights.totals[`cases_by_${label}`] = rows;
-
-            insights.hypothesis.push(`🧩 Breakdown on '${col}' as '${label}' complete.`);
-        } catch (err) {
-            insights.hypothesis.push(`⚠️ Breakdown error for '${col}': ${err.message}`);
-        }
-    }
-
-    if (regionCol) breakdown(regionCol, "regions");
-    if (occupationCol) breakdown(occupationCol, "occupations");
-    if (industryCol) breakdown(industryCol, "industries");
-    if (categoryCol) breakdown(categoryCol, "conditions");
-
-    // 🔁 Auto breakdown
-    dynamicBreakdown(df, valueCol, insights);
-
-    // 📈 Trends
-    if (yearCol) {
-        try {
-            const trend = trendAnalysis(df, yearCol, valueCol);
-            insights.trends = trend;
-
-            const values = trend.map(row => row.avg);
-            const growth = values
-                .map((v, i) => i === 0 ? null : ((v - values[i - 1]) / values[i - 1]) * 100)
-                .filter(v => v !== null && !isNaN(v));
-
-            if (growth.length > 0) {
-                insights.kpis.avg_growth_rate = safeMean(growth).toFixed(2) + "%";
-                insights.hypothesis.push("📈 Yearly growth trends analyzed.");
+            const sorted = [...rows].sort((a, b) => b[admissionCol] - a[admissionCol]);
+            if (sorted.length > 0) {
+                insights.highPerformers = sorted[0];
+                insights.lowPerformers = sorted[sorted.length - 1];
+                insights.hypothesis.push("🏅 High and low performers identified by admissions.");
             }
-        } catch (err) {
-            insights.hypothesis.push(`⚠️ Trend analysis error: ${err.message}`);
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Error analyzing admissions by department.");
         }
     }
 
-    // 🔮 Forecast
-    if (yearCol && df.shape[0] >= 3) {
+    // 2. Disease incidence
+    if (diseaseCol && admissionCol) {
         try {
-            const subset = df.loc({ columns: [yearCol, valueCol] }).dropNa();
-            const years = cleanNum(subset[yearCol].values.map(y => parseInt(y)));
-            const values = cleanNum(subset[valueCol].values);
-
-            if (years.length === values.length && years.length >= 3) {
-                const reg = new mlr(years, values);
-                const next = Math.max(...years) + 1;
-                const pred = reg.predict(next);
-                insights.kpis.predicted_next_year_cases = pred.toFixed(2);
-                insights.hypothesis.push(`🔮 Forecast: ~${pred.toFixed(2)} cases in ${next}`);
-            }
-        } catch {
-            insights.hypothesis.push("⚠️ Forecast skipped due to invalid regression data.");
+            const grouped = groupByAndAggregate(df, diseaseCol, admissionCol, "sum");
+            insights.breakdowns.disease_incidence = toRowJSON(grouped);
+            insights.hypothesis.push("🦠 Disease incidence distribution analyzed.");
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Disease incidence analysis failed.");
         }
     }
 
-    // 📉 Feature correlation
-    const allNumCols = df.columns.filter(c => cleanNum(df[c].values).length > 0 && c !== valueCol);
-    const topCorr = allNumCols.map(col => {
-        const x = cleanNum(df[col].values);
-        const y = valArr;
-        const paired = x.map((v, i) => [v, y[i]]).filter(([a, b]) => !isNaN(a) && !isNaN(b));
-        if (paired.length < 3) return null;
-
-        const xVals = paired.map(p => p[0]);
-        const yVals = paired.map(p => p[1]);
-
-        const avgX = safeMean(xVals), avgY = safeMean(yVals);
-        const cov = xVals.map((v, i) => (v - avgX) * (yVals[i] - avgY)).reduce((a, b) => a + b, 0) / xVals.length;
-        const stdX = Math.sqrt(xVals.map(v => (v - avgX) ** 2).reduce((a, b) => a + b, 0) / xVals.length);
-        const stdY = Math.sqrt(yVals.map(v => (v - avgY) ** 2).reduce((a, b) => a + b, 0) / yVals.length);
-        const corr = cov / (stdX * stdY);
-        return { col, corr };
-    }).filter(Boolean).sort((a, b) => Math.abs(b.corr) - Math.abs(a.corr));
-
-    if (topCorr[0] && Math.abs(topCorr[0].corr) > 0.4) {
-        insights.hypothesis.push(`📌 Feature '${topCorr[0].col}' shows strong correlation (${topCorr[0].corr.toFixed(2)}) with '${valueCol}'.`);
+    // 3. Treatment success rate
+    if (treatmentCol && outcomeCol) {
+        try {
+            const outcomes = df[outcomeCol].values.map(v => String(v).toLowerCase());
+            const successTerms = ["success", "recovered", "discharged"];
+            const successCount = outcomes.filter(v => successTerms.includes(v)).length;
+            const total = outcomes.length || 1;
+            insights.kpis.treatment_success_rate = ((successCount / total) * 100).toFixed(2) + "%";
+            insights.hypothesis.push("✅ Treatment success rate calculated.");
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Treatment outcome analysis failed.");
+        }
     }
 
-    if (insights.hypothesis.length === 0) {
-        insights.hypothesis.push("⚠️ No strong signals found. Add outcome, region, or date columns.");
+    // 4. Bed occupancy stats
+    if (bedCol) {
+        try {
+            const vals = cleanNum(df[bedCol].values);
+            insights.kpis.avg_bed_occupancy = safeMean(vals).toFixed(2);
+            insights.kpis.max_bed_occupancy = safeMax(vals);
+            insights.hypothesis.push("🛏️ Bed occupancy stats derived.");
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Bed occupancy analysis failed.");
+        }
+    }
+
+    // 5. Staff workload
+    if (staffCol && dateCol) {
+        try {
+            const grouped = groupByAndAggregate(df, staffCol, staffCol, "count");
+            insights.breakdowns.staff_workload = toRowJSON(grouped);
+            insights.hypothesis.push("🧑‍⚕️ Staff workload distribution analyzed.");
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Staff workload analysis failed.");
+        }
+    }
+
+    // 6. Equipment usage
+    if (equipmentCol && admissionCol) {
+        try {
+            const usage = groupByAndAggregate(df, equipmentCol, admissionCol, "sum");
+            insights.breakdowns.equipment_usage = toRowJSON(usage);
+            insights.hypothesis.push("🔧 Medical equipment usage analyzed.");
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Equipment usage analysis failed.");
+        }
+    }
+
+    // 7. Insurance claim patterns
+    if (insuranceCol && admissionCol) {
+        try {
+            const claims = groupByAndAggregate(df, insuranceCol, admissionCol, "sum");
+            insights.breakdowns.insurance_claims = toRowJSON(claims);
+            insights.hypothesis.push("💳 Insurance claim patterns evaluated.");
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Insurance claim analysis failed.");
+        }
+    }
+
+    // 8. Medication prescription trends
+    if (medicationCol && dateCol) {
+        try {
+            const meds = df[medicationCol].values;
+            const dates = df[dateCol].values;
+            const records = [];
+
+            for (let i = 0; i < meds.length; i++) {
+                const date = new Date(dates[i]).toISOString().split('T')[0];
+                const drugs = String(meds[i]).split(',').map(d => d.trim());
+                for (const drug of drugs) {
+                    records.push({ date, drug });
+                }
+            }
+
+            const medDF = new dfd.DataFrame(records);
+            const grouped = medDF.groupby(["date", "drug"]).col(["drug"]).count();
+            grouped.rename({ "drug_count": "count" }, { inplace: true });
+
+            insights.trends.medication_trends = toRowJSON(grouped);
+            insights.hypothesis.push("💊 Medication prescription frequency over time analyzed.");
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Medication trend analysis failed.");
+        }
+    }
+
+    // 9. Forecasting future admissions
+    if (admissionCol && dateCol && df.shape[0] >= 5) {
+        try {
+            const subset = df.loc({ columns: [dateCol, admissionCol] }).dropNa();
+            const rawDates = subset[dateCol].values;
+            const parsedDates = rawDates.map(v => new Date(v)).filter(d => !isNaN(d));
+            const y = cleanNum(subset[admissionCol].values);
+            const x = parsedDates.map((_, i) => i);
+
+            if (x.length === y.length && x.length >= 3) {
+                const model = new mlr(x, y);
+                const next = x.length;
+                const forecast = model.predict(next);
+                insights.forecasts.admissions_next_period = forecast.toFixed(2);
+                insights.hypothesis.push(`🔮 Forecasted admissions for next period: ${forecast.toFixed(2)}`);
+            } else {
+                insights.hypothesis.push("⚠️ Not enough clean data to forecast admissions.");
+            }
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Forecasting failed for admissions.");
+        }
+    }
+
+    // 10. Totals
+    if (admissionCol) {
+        try {
+            const admissions = cleanNum(df[admissionCol].values);
+            insights.totals.total_admissions = safeSum(admissions);
+            insights.totals.avg_admissions = safeMean(admissions).toFixed(2);
+            insights.totals.max_admissions = safeMax(admissions);
+            insights.hypothesis.push("📊 Totals for admissions calculated.");
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Failed to calculate totals.");
+        }
+    }
+
+    // 11. Correlation between beds and admissions
+    if (bedCol && admissionCol) {
+        try {
+            const x = cleanNum(df[bedCol].values);
+            const y = cleanNum(df[admissionCol].values);
+
+            if (x.length === y.length && x.length >= 3) {
+                const xMean = safeMean(x);
+                const yMean = safeMean(y);
+                const covariance = x.reduce((acc, xi, i) => acc + ((xi - xMean) * (y[i] - yMean)), 0);
+                const xStd = Math.sqrt(x.reduce((acc, xi) => acc + Math.pow(xi - xMean, 2), 0));
+                const yStd = Math.sqrt(y.reduce((acc, yi) => acc + Math.pow(yi - yMean, 2), 0));
+                const correlation = covariance / (xStd * yStd);
+                insights.correlations.push({
+                    between: `${bedCol} & ${admissionCol}`,
+                    correlation: correlation.toFixed(3)
+                });
+                insights.hypothesis.push("📈 Correlation between bed occupancy and admissions analyzed.");
+            }
+        } catch (e) {
+            insights.hypothesis.push("⚠️ Correlation computation failed.");
+        }
     }
 
     return insights;

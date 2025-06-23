@@ -47,6 +47,9 @@ function getFinanceInsights(df) {
         lowPerformers: {},
         totals: {},
         trends: [],
+        forecast: {},
+        segments: {},
+        variance: {},
         hypothesis: []
     };
 
@@ -54,6 +57,7 @@ function getFinanceInsights(df) {
     const expenseCol = fuzzyMatch(df, ["expense", "cost", "spend", "debit", "withdrawal"]);
     const dateCol = fuzzyMatch(df, ["date", "timestamp", "period", "time"]);
     const metricCol = fuzzyMatch(df, ["metric", "type", "category", "label"], "string");
+    const customerCol = fuzzyMatch(df, ["customer", "client", "user"], "string");
 
     if (!revenueCol) {
         insights.hypothesis.push("⚠️ Revenue column not found.");
@@ -63,6 +67,7 @@ function getFinanceInsights(df) {
     const revenueVals = cleanNum(df[revenueCol].values);
     const expenseVals = expenseCol ? cleanNum(df[expenseCol].values) : [];
 
+    // ────── KPIs ──────
     insights.kpis.total_revenue = safeSum(revenueVals);
     insights.kpis.avg_revenue = safeMean(revenueVals);
     insights.kpis.median_revenue = safeMedian(revenueVals);
@@ -71,105 +76,106 @@ function getFinanceInsights(df) {
     if (expenseVals.length) {
         insights.kpis.total_expenses = safeSum(expenseVals);
         insights.kpis.avg_expenses = safeMean(expenseVals);
-        insights.kpis.net_profit = (insights.kpis.total_revenue - insights.kpis.total_expenses).toFixed(2);
-        insights.hypothesis.push("📊 Analyzed relationship between revenue and expenses.");
+        const netProfit = insights.kpis.total_revenue - insights.kpis.total_expenses;
+        insights.kpis.net_profit = netProfit.toFixed(2);
+        insights.kpis.net_margin = ((netProfit / insights.kpis.total_revenue) * 100).toFixed(2) + "%";
+        insights.hypothesis.push("📊 Calculated profitability ratios.");
     } else {
         insights.hypothesis.push("💡 Only revenue data available; no expense analysis.");
     }
 
-    if (metricCol) {
+    // ────── Trend Analysis ──────
+    if (dateCol) {
         try {
-            const metrics = df[metricCol].unique().values;
-            insights.hypothesis.push(`🧾 Metric values: ${metrics.slice(0, 3).join(", ")}${metrics.length > 3 ? ", ..." : ""}`);
-        } catch {
-            insights.hypothesis.push("⚠️ Metric column exists but could not extract values.");
-        }
-    }
-
-    let catColList = guessCategorical(df, [revenueCol, expenseCol, dateCol, metricCol]);
-    let catCol = catColList.length ? catColList[0] : deriveCategorical(df);
-
-    if (!catCol) {
-        catCol = df.columns.find(col => typeof df[col].values[0] === "string");
-        if (catCol) insights.hypothesis.push(`⚠️ Fallback to string column: '${catCol}'`);
-    }
-
-    if (catCol && revenueCol) {
-        try {
-            const grouped = groupByAndAggregate(df, catCol, revenueCol, "mean");
-
-            if (grouped.shape[0] > 0) {
-                const sorted = grouped.sortValues(revenueCol, { ascending: false });
-                const json = sorted.values.map(row => {
-                    const obj = {};
-                    sorted.columns.forEach((col, i) => obj[col] = row[i]);
-                    return obj;
-                });
-
-                insights.totals[`revenue_by_${catCol}`] = json;
-                insights.highPerformers[`top_${catCol}`] = json.slice(0, 3);
-                insights.lowPerformers[`bottom_${catCol}`] = json.slice(-3);
-                insights.hypothesis.push(`🏷 Grouped by '${catCol}' for revenue insights.`);
+            const trends = trendAnalysis(df, dateCol, revenueCol, expenseCol);
+            if (Array.isArray(trends) && trends.length > 0) {
+                insights.trends = trends;
+                insights.hypothesis.push("📈 Revenue vs Expense trend analysis complete.");
+            } else {
+                insights.hypothesis.push("⚠️ Trend analysis returned no insights.");
             }
-        } catch (err) {
-            insights.hypothesis.push(`⚠️ Grouping failed on '${catCol}': ${err.message}`);
-        }
-    }
-
-    if (dateCol && revenueVals.length >= 2) {
-        try {
-            const dfCopy = df.loc({ columns: [dateCol, revenueCol] }).dropNa();
-            const sorted = dfCopy.sortValues(dateCol);
-            const revs = cleanNum(sorted[revenueCol].values);
-            const growthRates = [];
-
-            for (let i = 1; i < revs.length; i++) {
-                const prev = revs[i - 1] || 1;
-                const rate = ((revs[i] - prev) / prev) * 100;
-                if (isFinite(rate)) growthRates.push(rate);
-            }
-
-            if (growthRates.length) {
-                insights.kpis.revenue_growth_rate_avg = safeMean(growthRates).toFixed(2) + "%";
-                insights.kpis.revenue_growth_rate_median = safeMedian(growthRates).toFixed(2) + "%";
-                insights.hypothesis.push("📈 Revenue growth rate calculated.");
-            }
-        } catch {
-            insights.hypothesis.push("⚠️ Revenue growth rate failed.");
-        }
-    }
-
-    if (dateCol && revenueVals.length >= 3) {
-        try {
-            const dfTime = df.loc({ columns: [dateCol, revenueCol] }).dropNa();
-            const sorted = dfTime.sortValues(dateCol);
-            const x = [...Array(sorted.shape[0]).keys()];
-            const y = cleanNum(sorted[revenueCol].values);
-
-            if (y.length >= 3) {
-                const reg = new mlr(x, y);
-                const next = reg.predict(x.length);
-                insights.kpis.revenue_forecast_next_period = next.toFixed(2);
-                insights.hypothesis.push("🔮 Forecast for next period generated.");
-            }
-        } catch (err) {
-            insights.hypothesis.push(`⚠️ Forecasting error: ${err.message}`);
-        }
-    }
-
-    if (dateCol && df.shape[0] >= 3) {
-        try {
-            const trends = trendAnalysis(df, dateCol, revenueCol);
-            insights.trends = trends;
-            insights.hypothesis.push(`📅 Trend analysis on '${dateCol}' completed.`);
         } catch {
             insights.hypothesis.push("⚠️ Trend analysis failed.");
         }
     }
 
-    if (!Object.keys(insights.highPerformers).length) {
-        insights.hypothesis.push("⚠️ No top/bottom performers detected.");
+    // ────── Forecast: Cash Flow ──────
+    if (dateCol && expenseCol) {
+        try {
+            const dfCopy = df.loc({ columns: [dateCol, revenueCol, expenseCol] }).dropNa().sortValues(dateCol);
+            const net = dfCopy[revenueCol].values.map((r, i) => parseFloat(r) - parseFloat(dfCopy[expenseCol].values[i]));
+            const x = [...Array(net.length).keys()];
+            if (x.length >= 3) {
+                const reg = new mlr(x, net);
+                const forecast = reg.predict(net.length);
+                insights.forecast = {
+                    method: "linear_regression",
+                    next_cashflow: forecast.toFixed(2)
+                };
+                insights.hypothesis.push("🔮 Cash flow forecast generated.");
+            } else {
+                insights.hypothesis.push("⚠️ Not enough data for cash flow forecast.");
+            }
+        } catch {
+            insights.hypothesis.push("⚠️ Cash flow forecast failed.");
+        }
     }
+
+    // ────── Monthly Variance ──────
+    if (dateCol) {
+        try {
+            const dfMonth = df.loc({ columns: [dateCol, revenueCol] });
+            const months = dfMonth[dateCol].values.map(d => new Date(d).toISOString().slice(0, 7));
+            dfMonth.addColumn("Month", months, { inplace: true });
+            const monthly = groupByAndAggregate(dfMonth, "Month", revenueCol, "sum");
+            insights.variance.monthly_revenue = monthly.toJSON();
+            insights.hypothesis.push("📅 Monthly revenue variance analyzed.");
+        } catch {
+            insights.hypothesis.push("⚠️ Monthly variance analysis failed.");
+        }
+    }
+
+    // ────── Customer Segmentation ──────
+    if (customerCol) {
+        const numericCols = df.columns.filter(c =>
+            c !== customerCol &&
+            df[c].values.every(v => typeof v === "number" && !isNaN(v))
+        );
+        if (numericCols.length >= 2) {
+            insights.segments.available_features = numericCols;
+            insights.hypothesis.push("👥 Customer segmentation features detected.");
+        } else {
+            insights.hypothesis.push("⚠️ Not enough numeric fields for segmentation.");
+        }
+    }
+
+    // ────── Group Performance ──────
+    let catColList = guessCategorical(df, [revenueCol, expenseCol, dateCol, metricCol]);
+    let catCol = catColList.length ? catColList[0] : deriveCategorical(df);
+
+    if (catCol && revenueCol) {
+        try {
+            const grouped = groupByAndAggregate(df, catCol, revenueCol, "mean");
+            const sorted = grouped.sortValues(revenueCol, { ascending: false });
+            const json = sorted.values.map(row => {
+                const obj = {};
+                sorted.columns.forEach((col, i) => obj[col] = row[i]);
+                return obj;
+            });
+
+            insights.totals[`revenue_by_${catCol}`] = json;
+            insights.highPerformers[`top_${catCol}`] = json.slice(0, 3);
+            insights.lowPerformers[`bottom_${catCol}`] = json.slice(-3);
+            insights.hypothesis.push(`🏷 Revenue performance grouped by '${catCol}'.`);
+        } catch {
+            insights.hypothesis.push(`⚠️ Grouping by '${catCol}' failed.`);
+        }
+    }
+
+    // ────── Risk, Credit, Investment Placeholders ──────
+    insights.hypothesis.push("⚠️ Risk exposure requires liabilities/debt columns.");
+    insights.hypothesis.push("⚠️ Credit default modeling needs labeled outcomes & payment history.");
+    insights.hypothesis.push("📊 Investment performance analysis requires investment/return fields.");
 
     return insights;
 }

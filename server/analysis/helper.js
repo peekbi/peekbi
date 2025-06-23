@@ -1,13 +1,22 @@
 const dfd = require("danfojs-node");
 const ss = require("simple-statistics");
+
 /**
- * Group by a column and apply aggregation (sum, mean, count).
+ * Group by a column and apply aggregation (sum, mean, count, median, min, max).
  */
 function groupByAndAggregate(df, groupByCol, valueCol, aggType = "sum") {
     if (!df.columns.includes(groupByCol) || !df.columns.includes(valueCol)) {
         console.warn(`⚠️  One or both columns missing: ${groupByCol}, ${valueCol}`);
         return null;
     }
+
+    // Ensure numeric conversion
+    const cleanNumeric = df[valueCol].values.map(v =>
+        typeof v === "string" ? parseFloat(v.replace(/[^0-9.-]+/g, "")) || 0 :
+            typeof v === "number" ? v : 0
+    );
+
+    df.addColumn(valueCol, cleanNumeric, { inplace: true });
 
     const groups = {};
 
@@ -32,19 +41,31 @@ function groupByAndAggregate(df, groupByCol, valueCol, aggType = "sum") {
 
     for (const key in groups) {
         result[groupByCol].push(key);
+        const values = groups[key];
+
+        let aggValue;
         switch (aggType) {
-            case "sum":
-                result[valueCol].push(groups[key].reduce((a, b) => a + b, 0));
-                break;
             case "mean":
-                result[valueCol].push(
-                    groups[key].reduce((a, b) => a + b, 0) / groups[key].length
-                );
+                aggValue = ss.mean(values);
+                break;
+            case "median":
+                aggValue = ss.median(values);
+                break;
+            case "min":
+                aggValue = Math.min(...values);
+                break;
+            case "max":
+                aggValue = Math.max(...values);
                 break;
             case "count":
+                aggValue = values.length;
+                break;
+            case "sum":
             default:
-                result[valueCol].push(groups[key].length);
+                aggValue = values.reduce((a, b) => a + b, 0);
         }
+
+        result[valueCol].push(parseFloat(aggValue.toFixed(2)));
     }
 
     return new dfd.DataFrame(result);
@@ -54,13 +75,16 @@ function groupByAndAggregate(df, groupByCol, valueCol, aggType = "sum") {
  * Detects outliers using IQR method.
  */
 function detectOutliers(data) {
-    const q1 = ss.quantile(data, 0.25);
-    const q3 = ss.quantile(data, 0.75);
+    const clean = data.filter(v => typeof v === "number" && !isNaN(v));
+    if (!clean.length) return [];
+
+    const q1 = ss.quantile(clean, 0.25);
+    const q3 = ss.quantile(clean, 0.75);
     const iqr = q3 - q1;
     const lower = q1 - 1.5 * iqr;
     const upper = q3 + 1.5 * iqr;
 
-    return data.filter((v) => v < lower || v > upper);
+    return clean.filter(v => v < lower || v > upper);
 }
 
 /**
@@ -68,28 +92,24 @@ function detectOutliers(data) {
  */
 function correlation(df, col1, col2) {
     if (!df.columns.includes(col1) || !df.columns.includes(col2)) {
-        console.warn(`⚠️  Cannot compute correlation: Missing column ${!df.columns.includes(col1) ? col1 : col2}`);
+        console.warn(`⚠️  Missing column for correlation: ${col1} or ${col2}`);
         return 0;
     }
 
-    const vals1 = df[col1].values.filter(v => typeof v === "number");
-    const vals2 = df[col2].values.filter(v => typeof v === "number");
+    const vals1 = df[col1].values.map(v => parseFloat(v)).filter(v => !isNaN(v));
+    const vals2 = df[col2].values.map(v => parseFloat(v)).filter(v => !isNaN(v));
 
     if (!vals1.length || !vals2.length || vals1.length !== vals2.length) {
-        console.warn(`⚠️  Correlation failed due to empty or unequal length arrays: ${col1}, ${col2}`);
+        console.warn(`⚠️  Cannot compute correlation: Unequal or empty value arrays.`);
         return 0;
     }
 
-    return ss.sampleCorrelation(vals1, vals2);
+    return parseFloat(ss.sampleCorrelation(vals1, vals2).toFixed(4));
 }
 
-
-/**
- * Generates average trend per date.
- */
 function trendAnalysis(df, dateCol, valueCol) {
     if (!df.columns.includes(dateCol) || !df.columns.includes(valueCol)) {
-        console.warn(`⚠️  Cannot perform trend analysis: Missing columns ${dateCol} or ${valueCol}`);
+        console.warn(`⚠️  Missing columns for trend analysis: ${dateCol}, ${valueCol}`);
         return [];
     }
 
@@ -99,17 +119,29 @@ function trendAnalysis(df, dateCol, valueCol) {
         const rawDate = df[dateCol].values[i];
         const rawValue = df[valueCol].values[i];
 
-        const date = new Date(rawDate);
-        const value = parseFloat(rawValue);
+        const date = rawDate instanceof Date ? rawDate : new Date(rawDate);
+        const value = typeof rawValue === 'number' ? rawValue : parseFloat(rawValue);
 
-        if (isNaN(date) || isNaN(value)) continue;
+        if (isNaN(value) || !(date instanceof Date) || isNaN(date.getTime())) {
+            console.warn(`⚠️ Skipped row ${i}: Invalid date or value`, {
+                rawDate,
+                parsedDate: date,
+                rawValue,
+                parsedValue: value
+            });
+            continue;
+        }
 
         const key = date.toISOString().split("T")[0];
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(value);
     }
 
-    const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
+    const sortedDates = Object.keys(grouped).sort();
+    if (sortedDates.length === 0) {
+        console.warn("⚠️ No valid grouped date keys found. Check input date/value columns.");
+        return [];
+    }
 
     let lastTotal = 0;
     let cumulative = 0;
@@ -118,8 +150,6 @@ function trendAnalysis(df, dateCol, valueCol) {
         const values = grouped[date];
         const total = values.reduce((a, b) => a + b, 0);
         const avg = total / values.length;
-        const orderCount = values.length;
-        const avgOrderValue = total / (orderCount || 1);
         cumulative += total;
 
         const change = lastTotal === 0 ? 0 : ((total - lastTotal) / lastTotal) * 100;
@@ -127,11 +157,10 @@ function trendAnalysis(df, dateCol, valueCol) {
 
         return {
             date,
-            total: total,
-            avg: avg,
-            count: orderCount,
-            avg_value: avgOrderValue,
-            cumulative_: cumulative,
+            total: parseFloat(total.toFixed(2)),
+            avg: parseFloat(avg.toFixed(2)),
+            count: values.length,
+            cumulative: parseFloat(cumulative.toFixed(2)),
             change_percent: parseFloat(change.toFixed(2))
         };
     });

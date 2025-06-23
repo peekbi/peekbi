@@ -1,180 +1,160 @@
 const dfd = require("danfojs-node");
-const { groupByAndAggregate, correlation, trendAnalysis } = require("../helper");
-const { safeSum, safeMean, safeMedian } = require("../utils/statsUtils");
-const mlr = require("ml-regression").SimpleLinearRegression;
-function getRetailInsights(df, match) {
+const { groupByAndAggregate, trendAnalysis } = require("../helper");
+const { safeSum, safeMean, safeMedian, safeMax } = require("../utils/statsUtils");
+const { SimpleLinearRegression } = require("ml-regression");
+
+function dfToRowObjects(df) {
+    return df.values.map(row => {
+        const obj = {};
+        df.columns.forEach((col, idx) => {
+            obj[col] = row[idx];
+        });
+        return obj;
+    });
+}
+
+function getEducationInsights(df) {
     const insights = {
         kpis: {},
         highPerformers: {},
         lowPerformers: {},
-        hypothesis: [],
         totals: {},
         trends: [],
+        hypothesis: [],
     };
 
-    const cols = {
-        quantity: ['qty', 'quantity', 'unitsold', 'soldquantity', 'orderquantity'],
-        unitPrice: ['unitprice', 'unitcost', 'price', 'priceperunit', 'rate', 'costperitem'],
-        sales: ['total', 'amount', 'sale', 'revenue', 'grosssale', 'netsale', 'invoicevalue', 'totalsale'],
-        profit: ['profit', 'grossprofit', 'netprofit'],
-        loss: ['loss', 'netloss'],
-        cost: ['cost', 'totalcost', 'purchaseprice'],
-        category: ['category', 'item', 'product', 'brand', 'segment'],
-        region: ['region', 'area', 'zone', 'territory', 'location'],
-        date: ['date', 'orderdate', 'timestamp', 'orderdatetime'],
-    };
+    const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const clean = arr => arr.map(v => parseFloat(v)).filter(v => !isNaN(v));
 
-    const colMatch = (type) => match(cols[type]);
-
-    const quantityCol = colMatch('quantity');
-    const unitPriceCol = colMatch('unitPrice');
-    const salesCol = colMatch('sales');
-    const profitCol = colMatch('profit');
-    const lossCol = colMatch('loss');
-    const costCol = colMatch('cost');
-    const categoryCol = colMatch('category');
-    const regionCol = colMatch('region');
-    const dateCol = colMatch('date');
-
-    // Compute Sales if missing
-    let salesColumnName = salesCol;
-    if (!salesCol && quantityCol && unitPriceCol) {
-        const qVals = df[quantityCol].values;
-        const pVals = df[unitPriceCol].values;
-        const computedSales = new Array(qVals.length);
-        for (let i = 0; i < qVals.length; i++) {
-            computedSales[i] = (parseFloat(qVals[i]) || 0) * (parseFloat(pVals[i]) || 0);
-        }
-        salesColumnName = "__computed_sales__";
-        df.addColumn(salesColumnName, computedSales);
-    }
-
-    // Compute Profit if missing
-    let profitColumnName = profitCol;
-    if (!profitCol && salesColumnName && costCol) {
-        const sVals = df[salesColumnName].values;
-        const cVals = df[costCol].values;
-        const computedProfit = new Array(sVals.length);
-        for (let i = 0; i < sVals.length; i++) {
-            computedProfit[i] = (parseFloat(sVals[i]) || 0) - (parseFloat(cVals[i]) || 0);
-        }
-        profitColumnName = "__computed_profit__";
-        df.addColumn(profitColumnName, computedProfit);
-    }
-
-    // Compute Loss if missing
-    let lossColumnName = lossCol;
-    if (!lossCol && salesColumnName && profitColumnName && df.columns.includes(profitColumnName)) {
-        const sVals = df[salesColumnName].values;
-        const pVals = df[profitColumnName].values;
-        const computedLoss = new Array(sVals.length);
-        for (let i = 0; i < sVals.length; i++) {
-            computedLoss[i] = (parseFloat(sVals[i]) || 0) - (parseFloat(pVals[i]) || 0);
-        }
-        lossColumnName = "__computed_loss__";
-        df.addColumn(lossColumnName, computedLoss);
-    }
-
-    // Fast cleaning of numeric values
-    const cleanVals = (vals) => {
-        const result = [];
-        for (let i = 0; i < vals.length; i++) {
-            const v = typeof vals[i] === 'string' ? parseFloat(vals[i]) : vals[i];
-            if (typeof v === 'number' && !isNaN(v)) result.push(v);
-        }
-        return result;
-    };
-
-    const salesVals = salesColumnName && df.columns.includes(salesColumnName) ? cleanVals(df[salesColumnName].values) : [];
-    const profitVals = profitColumnName && df.columns.includes(profitColumnName) ? cleanVals(df[profitColumnName].values) : [];
-    const lossVals = lossColumnName && df.columns.includes(lossColumnName) ? cleanVals(df[lossColumnName].values) : [];
-
-    // KPIs
-    insights.kpis = {
-        total_sales: safeSum(salesVals),
-        avg_sales: safeMean(salesVals),
-        median_sales: safeMedian(salesVals),
-        total_profit: safeSum(profitVals),
-        total_loss: safeSum(lossVals),
-    };
-
-    // High / Low Performers by Category
-    if (categoryCol && salesColumnName) {
-        const grouped = groupByAndAggregate(df, categoryCol, salesColumnName, 'sum');
-        if (grouped) {
-            grouped.sortValues(salesColumnName, { ascending: false, inplace: true });
-            const json = dfd.toJSON(grouped, { format: "row" });
-            const jsonArr = Array.isArray(json) ? json : Object.values(json);
-            insights.highPerformers = jsonArr.slice(0, 3);
-            insights.lowPerformers = jsonArr.slice(-3);
-            insights.totals.sales_by_category = jsonArr;
-        }
-    }
-
-    // Hypothesis
-    let hypothesisAdded = false;
-    const totalProfit = insights.kpis.total_profit;
-    const totalLoss = insights.kpis.total_loss;
-    const totalSales = insights.kpis.total_sales;
-
-    if (
-        df.shape[0] < 10000 &&
-        profitColumnName && lossColumnName &&
-        df.columns.includes(profitColumnName) && df.columns.includes(lossColumnName)
-    ) {
-        const corr = correlation(df, profitColumnName, lossColumnName);
-        insights.hypothesis.push(`📊 Correlation between profit and loss: ${corr.toFixed(2)}`);
-        hypothesisAdded = true;
-    }
-
-    if (!hypothesisAdded && totalProfit && totalSales) {
-        const margin = totalProfit / (totalSales || 1);
-        insights.hypothesis.push(`💰 Average profit margin (estimated): ${(margin * 100).toFixed(2)}%`);
-        hypothesisAdded = true;
-    }
-
-    if (!hypothesisAdded && totalProfit && totalLoss) {
-        insights.hypothesis.push(`🧾 Estimated total loss (based on sales - profit): ₹${(totalLoss).toFixed(2)}`);
-        hypothesisAdded = true;
-    }
-
-    if (!hypothesisAdded) {
-        insights.hypothesis.push(`⚠️ Data incomplete — profit/loss/sales not directly found. Tried fallback logic.`);
-    }
-
-    // Sales by Region
-    if (regionCol && salesColumnName) {
-        const grouped = groupByAndAggregate(df, regionCol, salesColumnName, 'sum');
-        if (grouped) {
-            insights.totals.sales_by_region = dfd.toJSON(grouped, { format: "row" });
-        }
-    }
-
-    // Sales Trend (only if dataset is manageable)
-    if (dateCol && salesColumnName && df.shape[0] < 10000) {
-        insights.trends = trendAnalysis(df, dateCol, salesColumnName);
-    }
-    // === Sales Forecast using Simple Linear Regression ===
-    if (dateCol && salesColumnName && df.shape[0] >= 3) {
-        try {
-            const dfTime = df.loc({ columns: [dateCol, salesColumnName] }).dropNa();
-            const sorted = dfTime.sortValues(dateCol);
-            const x = Array.from({ length: sorted.shape[0] }, (_, i) => i); // time index
-            const y = cleanVals(sorted[salesColumnName].values);
-
-            if (x.length === y.length && x.length >= 3) {
-                const reg = new mlr(x, y);
-                const forecast = reg.predict(x.length); // predict for next time index
-
-                insights.kpis.sales_forecast_next_period = forecast.toFixed(2);
-                insights.hypothesis.push("🔮 Forecasted next period's sales using Simple Linear Regression.");
+    const fuzzyMatch = (keywords, type = "string") => {
+        const normCols = df.columns.map(c => normalize(c));
+        for (const keyword of keywords.map(normalize)) {
+            for (let i = 0; i < normCols.length; i++) {
+                const col = df.columns[i];
+                const vals = df[col].values;
+                if (normCols[i].includes(keyword)) {
+                    if (type === "number" && vals.every(v => isNaN(parseFloat(v)))) continue;
+                    return col;
+                }
             }
-        } catch (err) {
-            insights.hypothesis.push("⚠️ Sales forecasting failed: " + err.message);
         }
+        return null;
+    };
+
+    // Match relevant columns
+    const scoreCol = fuzzyMatch(["score", "grade", "mark", "result"], "number");
+    const studentCol = fuzzyMatch(["student", "learner", "name"]);
+    const subjectCol = fuzzyMatch(["subject", "course", "class"]);
+    const dateCol = fuzzyMatch(["date", "year", "month"]);
+    const attendanceCol = fuzzyMatch(["attendance", "present", "attendancerate"], "number");
+    const completionCol = fuzzyMatch(["completion", "status", "completionrate"], "number");
+    const alumniCol = fuzzyMatch(["alumni", "career", "placement"], "number");
+    const budgetCol = fuzzyMatch(["budget", "expenditure", "cost"], "number");
+    const infraCol = fuzzyMatch(["lab", "library", "facility", "infrastructure"], "number");
+    const dropoutCol = fuzzyMatch(["dropout", "retention"], "number");
+    const enrollmentCol = fuzzyMatch(["enrollment", "registered"], "number");
+    const teacherCol = fuzzyMatch(["teacher", "faculty", "instructor"]);
+
+    let foundSomething = false;
+
+    // Core KPIs
+    if (scoreCol) {
+        const scores = clean(df[scoreCol]?.values || []);
+        insights.kpis.total_score = safeSum(scores);
+        insights.kpis.avg_score = safeMean(scores);
+        insights.kpis.median_score = safeMedian(scores);
+        insights.kpis.max_score = safeMax(scores);
+        foundSomething = true;
+    }
+
+    // Performance by Subject
+    if (subjectCol && scoreCol) {
+        const grp = groupByAndAggregate(df, subjectCol, scoreCol, "mean").sortValues(scoreCol, { ascending: false });
+        const rows = dfToRowObjects(grp);
+        insights.highPerformers.top_subjects = rows.slice(0, 3);
+        insights.lowPerformers.bottom_subjects = rows.slice(-3);
+        insights.totals.performance_by_subject = rows;
+        insights.hypothesis.push("📌 Student performance trends by subject.");
+        foundSomething = true;
+    }
+
+    // Dropout & Retention
+    if (dropoutCol) {
+        const vals = clean(df[dropoutCol].values);
+        const avg = safeMean(vals);
+        insights.kpis.dropout_rate = avg.toFixed(2) + "%";
+        insights.kpis.retention_rate = (100 - avg).toFixed(2) + "%";
+        insights.hypothesis.push("📌 Dropout and retention rates analyzed.");
+        foundSomething = true;
+    }
+
+    // Enrollment Trends
+    if (enrollmentCol) {
+        const vals = clean(df[enrollmentCol].values);
+        insights.kpis.total_enrollments = safeSum(vals);
+        insights.hypothesis.push("📌 Course popularity and enrollment trends.");
+        foundSomething = true;
+    }
+
+    // Teacher Performance
+    if (teacherCol && scoreCol) {
+        const grp = groupByAndAggregate(df, teacherCol, scoreCol, "mean").sortValues(scoreCol, { ascending: false });
+        insights.totals.performance_by_teacher = dfToRowObjects(grp);
+        insights.hypothesis.push("📌 Teacher-student performance correlation.");
+        foundSomething = true;
+    }
+
+    // Budget
+    if (budgetCol) {
+        const vals = clean(df[budgetCol].values);
+        insights.kpis.total_budget = safeSum(vals);
+        insights.kpis.avg_budget_spent = safeMean(vals);
+        insights.hypothesis.push("📌 Budget utilization effectiveness.");
+        foundSomething = true;
+    }
+
+    // Infrastructure
+    if (infraCol) {
+        const vals = clean(df[infraCol].values);
+        insights.kpis.infrastructure_usage_avg = safeMean(vals).toFixed(2);
+        insights.hypothesis.push("📌 Infrastructure usage analyzed.");
+        foundSomething = true;
+    }
+
+    // Alumni Career
+    if (alumniCol) {
+        const vals = clean(df[alumniCol].values);
+        insights.kpis.alumni_employment_rate = safeMean(vals).toFixed(2) + "%";
+        insights.hypothesis.push("📌 Alumni career tracking.");
+        foundSomething = true;
+    }
+
+    // Attendance vs Score
+    if (attendanceCol && scoreCol) {
+        const x = clean(df[attendanceCol].values);
+        const y = clean(df[scoreCol]?.values || []);
+        if (x.length === y.length && x.length >= 3) {
+            const reg = new SimpleLinearRegression(x, y);
+            insights.kpis.attendance_performance_slope = reg.slope.toFixed(4);
+        }
+        insights.kpis.attendance_rate_avg = safeMean(x).toFixed(2) + "%";
+        insights.hypothesis.push("📌 Attendance impact on grades.");
+        foundSomething = true;
+    }
+
+    // Score Trends
+    if (dateCol && scoreCol) {
+        const trends = trendAnalysis(df, dateCol, scoreCol);
+        insights.trends = trends;
+        foundSomething = true;
+    }
+
+    // Fallback hypothesis if nothing was detected
+    if (!foundSomething) {
+        insights.hypothesis.push("⚠️ No patterns detected. Add columns like score, date, subject, or attendance.");
     }
 
     return insights;
 }
 
-module.exports = { getRetailInsights };
+module.exports = { getEducationInsights };
