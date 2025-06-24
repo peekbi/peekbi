@@ -180,3 +180,28 @@ exports.getSubscriptionDetails = async (req, res) => {
         return res.status(500).json({ message: 'Internal Server Error' });
     }
 };
+
+exports.getUsageHistory = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        const usage = await UserUsage.findOne({ userId });
+
+        if (!usage) {
+            return res.status(404).json({ message: "No usage record found." });
+        }
+
+        return res.status(200).json({
+            uploads: usage.uploads || 0,
+            downloads: usage.downloads || 0,
+            analyse: usage.analyse || 0,
+            aiPromts: usage.aiPromts || 0,
+            reports: usage.reports || 0,
+            charts: usage.charts || 0,
+            updatedAt: usage.updatedAt || null,
+        });
+    } catch (err) {
+        console.error("❌ Error fetching usage history:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
