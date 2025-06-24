@@ -13,7 +13,7 @@ function dfToRowObjects(df) {
     });
 }
 
-function getRetailInsights(df, match) {
+function getRetailInsights(df) {
     const insights = {
         kpis: {},
         highPerformers: {},
@@ -28,24 +28,23 @@ function getRetailInsights(df, match) {
     };
 
     df.columns = df.columns.map(col => col.trim());
-    const originalCols = [...df.columns];
+    const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     const rawCols = {
-        quantity: ['qty', 'quantity', 'units sold', 'unitsold', 'sold quantity', 'soldquantity', 'order quantity', 'orderquantity'],
-        unitPrice: ['unit price', 'unitprice', 'unit cost', 'unitcost', 'price', 'price per unit', 'rate', 'cost per item'],
-        sales: ['total', 'amount', 'sale', 'revenue', 'gross sale', 'net sale', 'invoice value', 'total revenue'],
-        profit: ['profit', 'gross profit', 'net profit', 'profit margin'],
-        cost: ['cost', 'purchase cost', 'total cost', 'purchase price', 'cost per unit'],
-        loss: ['loss', 'net loss'],
-        category: ['category', 'product', 'item', 'brand', 'segment', 'product category'],
-        region: ['region', 'area', 'zone', 'territory', 'location'],
-        date: ['date', 'order date', 'timestamp'],
-        customer: ['customer', 'customer id', 'client', 'user'],
-        returnFlag: ['return', 'returned', 'is return', 'is_return', 'returned (y/n)'],
-        promotionFlag: ['promo', 'discount', 'promotion', 'promotion applied (y/n)', 'is_discounted']
+        quantity: ['qty', 'quantity', 'units sold', 'unitsold', 'sold quantity', 'sold_qty', 'order quantity', 'order_qty', 'qty sold'],
+        unitPrice: ['unit price', 'unitprice', 'unit cost', 'unitcost', 'price', 'price per unit', 'rate', 'cost per item', 'item price'],
+        sales: ['total', 'amount', 'sales', 'sale', 'revenue', 'gross sale', 'net sale', 'invoice value', 'total revenue', 'totalamount', 'total price', 'total_price', 'order value'],
+        profit: ['profit', 'gross profit', 'net profit', 'profit margin', 'profit ($)', 'profit amount', 'margin'],
+        cost: ['cost', 'purchase cost', 'total cost', 'purchase price', 'cost per unit', 'unit cost'],
+        loss: ['loss', 'net loss', 'negative profit'],
+        category: ['category', 'product', 'item', 'brand', 'segment', 'product category', 'sub category', 'subcategory'],
+        region: ['region', 'area', 'zone', 'territory', 'location', 'market'],
+        date: ['date', 'order date', 'timestamp', 'sale date', 'datetime', 'transaction date'],
+        customer: ['customer', 'customer id', 'client', 'user', 'customer name', 'client id', 'user id'],
+        returnFlag: ['return', 'returned', 'is return', 'is_return', 'returned (y/n)', 'return status', 'was returned', 'isreturned'],
+        promotionFlag: ['promo', 'discount', 'promotion', 'promotion applied (y/n)', 'is_discounted', 'discount applied', 'discountflag']
     };
 
-    const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
     const safeMatch = possible => {
         const normalizedCols = df.columns.map(normalize);
         const colMap = Object.fromEntries(df.columns.map((col, i) => [normalizedCols[i], col]));
@@ -55,14 +54,16 @@ function getRetailInsights(df, match) {
         }
         return undefined;
     };
+
     const colMatch = type => safeMatch(rawCols[type]);
 
+    // Column detection
     const quantityCol = colMatch("quantity");
     const unitPriceCol = colMatch("unitPrice");
-    const salesCol = colMatch("sales");
-    const profitCol = colMatch("profit");
-    const costCol = colMatch("cost");
-    const lossCol = colMatch("loss");
+    let salesCol = colMatch("sales");
+    let profitCol = colMatch("profit");
+    let costCol = colMatch("cost");
+    let lossCol = colMatch("loss");
     const categoryCol = colMatch("category");
     const regionCol = colMatch("region");
     const dateCol = colMatch("date");
@@ -70,6 +71,7 @@ function getRetailInsights(df, match) {
     const returnCol = colMatch("returnFlag");
     const promoCol = colMatch("promotionFlag");
 
+    // Compute helper
     const computeColumn = (col1, col2, fn, name) => {
         if (!col1 || !col2 || !df.columns.includes(col1) || !df.columns.includes(col2)) return undefined;
         const vals1 = df[col1].values.map(v => parseFloat(v) || 0);
@@ -79,89 +81,104 @@ function getRetailInsights(df, match) {
         return name;
     };
 
-    const cleanNumeric = vals => vals.map(v => parseFloat(String(v).replace(/[^0-9.-]/g, "")) || 0);
+    const cleanNumeric = vals => vals.map(v => parseFloat(String(v).toString().replace(/[^0-9.-]/g, "")) || 0);
 
-    let salesColName = salesCol;
-    if (!salesColName && quantityCol && unitPriceCol) {
-        salesColName = computeColumn(quantityCol, unitPriceCol, (a, b) => a * b, "__sales__");
+    // Build missing sales/profit/loss columns
+    if (!salesCol && quantityCol && unitPriceCol) {
+        salesCol = computeColumn(quantityCol, unitPriceCol, (a, b) => a * b, "__sales__");
     }
 
-    let profitColName = profitCol;
-    if (!profitColName && salesColName && costCol) {
-        profitColName = computeColumn(salesColName, costCol, (a, b) => a - b, "__profit__");
+    if (!profitCol && salesCol && costCol) {
+        profitCol = computeColumn(salesCol, costCol, (a, b) => a - b, "__profit__");
     }
 
-    let lossColName = lossCol;
-    if (!lossColName && salesColName && profitColName) {
-        lossColName = computeColumn(salesColName, profitColName, (a, b) => a - b, "__loss__");
+    if (!lossCol && salesCol && profitCol) {
+        lossCol = computeColumn(salesCol, profitCol, (a, b) => a - b, "__loss__");
     }
 
-    const salesVals = cleanNumeric(df[salesColName]?.values || []);
-    const profitVals = cleanNumeric(df[profitColName]?.values || []);
-    const lossVals = cleanNumeric(df[lossColName]?.values || []);
+    const salesVals = cleanNumeric(df[salesCol]?.values || []);
+    const profitVals = cleanNumeric(df[profitCol]?.values || []);
+    const lossVals = cleanNumeric(df[lossCol]?.values || []);
+    const quantityVals = cleanNumeric(df[quantityCol]?.values || []);
 
-    insights.kpis = {
-        total_sales: safeSum(salesVals),
-        avg_sales: safeMean(salesVals),
-        median_sales: safeMedian(salesVals),
-        total_profit: safeSum(profitVals),
-        total_loss: safeSum(lossVals),
-        profit_margin_percent: (safeMean(salesVals.map((s, i) => profitVals[i] / (s || 1))) * 100).toFixed(2)
-    };
+    // Core KPIs
+    if (salesVals.length > 0) {
+        insights.kpis = {
+            total_sales: safeSum(salesVals),
+            avg_sales: safeMean(salesVals),
+            median_sales: safeMedian(salesVals),
+            total_profit: safeSum(profitVals),
+            total_loss: safeSum(lossVals),
+            avg_order_value: (safeSum(salesVals) / (df.shape[0] || 1)).toFixed(2),
+            profit_margin_percent: (safeMean(salesVals.map((s, i) => profitVals[i] / (s || 1))) * 100).toFixed(2)
+        };
+    }
 
-    if (categoryCol && salesColName) {
-        const catGroup = groupByAndAggregate(df, categoryCol, salesColName, "sum");
+    // Top and low performers by category
+    if (categoryCol && salesCol) {
+        const catGroup = groupByAndAggregate(df, categoryCol, salesCol, "sum");
         if (catGroup) {
-            catGroup.sortValues(salesColName, { ascending: false, inplace: true });
+            catGroup.sortValues(salesCol, { ascending: false, inplace: true });
             const json = dfToRowObjects(catGroup);
             insights.highPerformers.top_products = json.slice(0, 5);
             insights.lowPerformers.low_products = json.slice(-3);
         }
     }
 
-    if (regionCol && salesColName) {
-        const regGroup = groupByAndAggregate(df, regionCol, salesColName, "sum");
+    // Region performance
+    if (regionCol && salesCol) {
+        const regGroup = groupByAndAggregate(df, regionCol, salesCol, "sum");
         if (regGroup) {
             insights.totals.sales_by_region = dfToRowObjects(regGroup);
         }
     }
 
-    if (salesColName && dateCol) {
+    // Sales trends over time
+    if (salesCol && dateCol) {
         try {
-            const trend = trendAnalysis(df, dateCol, salesColName);
-            if (trend.length) {
+            const trend = trendAnalysis(df, dateCol, salesCol);
+            if (trend?.length) {
                 insights.trends.daily = trend;
             }
-        } catch (e) { /* trendAnalysis failed */ }
+        } catch { }
     }
 
+    // Frequent customers
     if (customerCol) {
         const freq = {};
-        df[customerCol].values.forEach(id => { freq[id] = (freq[id] || 0) + 1; });
+        df[customerCol].values.forEach(id => {
+            freq[id] = (freq[id] || 0) + 1;
+        });
         const top = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 5)
             .map(([customer, purchases]) => ({ customer, purchases }));
         insights.customer.frequent_customers = top;
     }
 
+    // Return analysis
     if (returnCol && df.columns.includes(returnCol)) {
         const returns = df[returnCol].values.map(v =>
             v === true || v === "Yes" || v === 1 || String(v).toLowerCase() === "y"
         );
-        insights.returns.return_rate_percent = ((returns.filter(Boolean).length / (returns.length || 1)) * 100).toFixed(2);
+        insights.returns = {
+            return_rate_percent: ((returns.filter(Boolean).length / (returns.length || 1)) * 100).toFixed(2),
+            returned_count: returns.filter(Boolean).length
+        };
     }
 
+    // Inventory turnover
     if (costCol && quantityCol) {
-        const avgCost = safeMean(cleanNumeric(df[costCol]?.values || []));
-        const cogs = safeSum(cleanNumeric(df[costCol]?.values || []));
-        if (avgCost) {
-            insights.inventory.turnover_rate = (cogs / avgCost).toFixed(2);
+        const totalCost = safeSum(cleanNumeric(df[costCol]?.values || []));
+        const totalQty = safeSum(quantityVals);
+        if (totalCost > 0 && totalQty > 0) {
+            insights.inventory.turnover_rate = (totalQty / (totalCost || 1)).toFixed(2);
         }
     }
 
-    if (promoCol && salesColName && df.columns.includes(promoCol)) {
+    // Promotion analysis
+    if (promoCol && salesCol && df.columns.includes(promoCol)) {
         const promoOn = [], promoOff = [];
         df[promoCol].values.forEach((flag, i) => {
-            const sale = parseFloat(df[salesColName].values[i]) || 0;
+            const sale = parseFloat(df[salesCol].values[i]) || 0;
             const isPromo = flag === true || flag === "Yes" || flag === 1 || String(flag).toLowerCase() === "y";
             (isPromo ? promoOn : promoOff).push(sale);
         });
@@ -173,7 +190,8 @@ function getRetailInsights(df, match) {
         }
     }
 
-    if (dateCol && salesColName && df.shape[0] >= 5) {
+    // Sales forecast using linear regression
+    if (dateCol && salesCol && df.shape[0] >= 5) {
         try {
             const cleanDates = df[dateCol].values.map(d => new Date(d)).filter(d => !isNaN(d));
             const sorted = cleanDates.map((d, i) => ({ x: i, y: salesVals[i] })).filter(r => r.y > 0);
@@ -183,9 +201,10 @@ function getRetailInsights(df, match) {
                 const reg = new SimpleLinearRegression(x, y);
                 insights.kpis.sales_forecast_next_period = reg.predict(x.length).toFixed(2);
             }
-        } catch (e) { /* forecasting failed */ }
+        } catch { }
     }
 
+    // Hypothesis generation
     if (insights.promotions.impact) {
         const { avg_with_promo, avg_without_promo } = insights.promotions.impact;
         const diff = avg_with_promo - avg_without_promo;
@@ -203,7 +222,7 @@ function getRetailInsights(df, match) {
     if (insights.highPerformers.top_products && insights.lowPerformers.low_products) {
         const top = insights.highPerformers.top_products[0];
         const low = insights.lowPerformers.low_products[0];
-        if (top && low && top[categoryCol] !== low[categoryCol]) {
+        if (top && low && categoryCol && top[categoryCol] !== low[categoryCol]) {
             insights.hypothesis.push(`Category "${top[categoryCol]}" is outperforming "${low[categoryCol]}". Consider shifting inventory.`);
         }
     }
