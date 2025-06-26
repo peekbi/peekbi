@@ -271,15 +271,7 @@ module.exports.getAllUsers = async (req, res) => {
             message: "All users fetched successfully",
             data: users,
             plan: users.plan,
-            users: users.map(user => ({
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                plan: user.plan ? user.plan.name : 'No plan',
-                createdAt: user.createdAt,
-                lastLogin: user.lastLogin,
-            })),
+            users: users,
         });
     } catch (error) {
         console.error("Error fetching all users:", error);
