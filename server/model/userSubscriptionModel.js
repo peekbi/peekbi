@@ -32,6 +32,9 @@ const userSubscriptionSchema = new mongoose.Schema({
             date: { type: Date, default: Date.now },
             status: { type: String, enum: ['success', 'failed', 'pending'] },
             razorpayPaymentId: { type: String, unique: true, sparse: true },
+            razorpayOrderId:  { type: String, unique: true, sparse: true },
+            razorpaySignature: { type: String, unique: true, sparse: true },
+            failReason:String,
         },
     ],
 });
