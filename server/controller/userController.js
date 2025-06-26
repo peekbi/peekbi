@@ -323,6 +323,82 @@ module.exports.updateUsers = async (req, res) => {
     }
 }
 
+module.exports.deleteUser = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        // find user by id and delete 
+        const deletedUser = await userModel.findByIdAndDelete(userId)
+        if (!deletedUser) {
+            return res.status(404).json({
+                status: "error",
+                message: "User not found"
+            });
+        }
+        res.status(200).json({
+            status: "success",
+            message: "User details deleted successfully",
+            user: deletedUser,
+        })
+    } catch (error) {
+        console.error("Error deleting user details:", error);
+        res.status(500).json({
+            status: "error",
+            message: "Internal server error"
+        });
+    }
+}
+module.exports.updateUserRole = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { role } = req.body;
+
+        if (!role) {
+            return res.status(400).json({
+                status: "error",
+                message: "Role is required"
+            });
+        }
+
+        const validRoles = ['user', 'admin', 'superadmin']; // Adjust based on your system
+        if (!validRoles.includes(role)) {
+            return res.status(400).json({
+                status: "error",
+                message: `Invalid role. Valid roles are: ${validRoles.join(', ')}`
+            });
+        }
+
+        // Update user's role
+        const updatedUser = await userModel.findByIdAndUpdate(
+            userId,
+            { role },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({
+                status: "error",
+                message: "User not found"
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            message: "User role updated successfully",
+            user: updatedUser,
+        });
+    } catch (error) {
+        console.error("Error updating user role:", error);
+        res.status(500).json({
+            status: "error",
+            message: "Internal server error"
+        });
+    }
+};
+
+module.exports.userStatus = async (req, res) => {
+
+}
+
 module.exports.logout = async (req, res) => {
     res.clearCookie('token');
     res.json({ message: 'Logged out Successful' });

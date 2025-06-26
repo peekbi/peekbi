@@ -8,8 +8,8 @@ router.post('/login', loginUser);
 router.get('/:id', authorization, getUserDetails);
 router.patch('/:id', authorization, updateUserDetails);
 router.post('/logout', logout)
-router.get('/', checkRole(['admin', 'admi']), getAllUsers);
-router.patch('/admin/:id', checkRole(['admin', 'admi']), updateUsers);
+router.get('/', authorization, checkRole(['admin', 'admi']), getAllUsers);
+router.patch('/admin/:id', authorization, checkRole(['admin', 'admi']), updateUsers);
 
 
 // Export the routes

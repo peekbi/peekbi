@@ -7,6 +7,7 @@ const adminRouter = require('./router/adminRouter');
 const subscriptionRouter = require('./router/subscriptionRouter');
 const planRouter = require('./router/planRoutes');
 const fileRoutes = require('./router/fileRoutes');
+const testimionialRoutes = require('./router/testimonialRoutes');
 const db = require('./config/db');
 const app = express();
 
@@ -123,6 +124,7 @@ app.use('/admin', adminRouter);
 app.use('/subscribe', subscriptionRouter);
 app.use('/plan', planRouter);
 app.use('/files', fileRoutes);
+app.use('/testimonials', testimionialRoutes);
 
 // Start server
 const PORT = process.env.PORT || 3000;

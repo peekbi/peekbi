@@ -39,51 +39,50 @@ function getManufacturingInsights(df) {
         hypothesis: []
     };
 
-    const prodCol = fuzzyMatch(df, ["produce", "unit", "output", "volume", "production"]);
-    const costCol = fuzzyMatch(df, ["cost", "expense", "spend"]);
-    const qualityCol = fuzzyMatch(df, ["defect", "quality", "reject", "scrap"]);
-    const machineCol = fuzzyMatch(df, ["machine", "downtime", "uptime", "maintenance"]);
+    const prodCol = fuzzyMatch(df, ["produce", "unit", "output", "volume", "production", 'unitproduced', 'unitsproduced', 'product_id']);
+    const costCol = fuzzyMatch(df, ["cost", "expense", "spend", 'productioncost', 'repair_cost']);
+    const qualityCol = fuzzyMatch(df, ["defect", "quality", "reject", "scrap", 'defectrate', 'defect_id']);
+    const machineCol = fuzzyMatch(df, ["machine", "downtime", "uptime", "maintenance", 'machineuptime', 'machinedowntime', 'machinemaintenance']);
     const leadTimeCol = fuzzyMatch(df, ["leadtime", "delivery", "supply"]);
     const materialCol = fuzzyMatch(df, ["material", "raw", "input"]);
     const energyCol = fuzzyMatch(df, ["energy", "power", "electricity"]);
     const laborCol = fuzzyMatch(df, ["labor", "workforce", "staff", "manpower"]);
-    const dateCol = fuzzyMatch(df, ["date", "period", "time", "timestamp"]);
+    const dateCol = fuzzyMatch(df, ["date", "period", "time", "timestamp", 'month', 'defect_date']);
+
+    const prodVals = prodCol ? cleanNum(df[prodCol].values) : [];
 
     // ─── Basic Production Stats ───
     if (prodCol) {
-        const prodVals = cleanNum(df[prodCol].values);
         insights.kpis.total_production = safeSum(prodVals);
         insights.kpis.avg_production = safeMean(prodVals);
         insights.kpis.max_production = safeMax(prodVals);
         insights.kpis.median_production = safeMedian(prodVals);
         insights.hypothesis.push(`✅ Production column detected: '${prodCol}'.`);
     } else {
-        insights.hypothesis.push("⚠️ No production column found.");
-        return insights;
+        insights.hypothesis.push("⚠️ No production column found. Skipping production KPIs.");
     }
 
     // ─── Production Efficiency ───
-    if (costCol || materialCol || energyCol) {
+    if (prodCol && prodVals.length > 0) {
         if (costCol) {
             const costs = cleanNum(df[costCol].values);
-            insights.efficiency.cost_per_unit = (safeSum(costs) / safeSum(cleanNum(df[prodCol].values))).toFixed(2);
+            insights.efficiency.cost_per_unit = (safeSum(costs) / safeSum(prodVals)).toFixed(2);
         }
         if (materialCol) {
             const inputs = cleanNum(df[materialCol].values);
-            insights.efficiency.material_efficiency = (safeSum(df[prodCol].values) / safeSum(inputs)).toFixed(2);
+            insights.efficiency.material_efficiency = (safeSum(prodVals) / safeSum(inputs)).toFixed(2);
         }
         if (energyCol) {
             const energy = cleanNum(df[energyCol].values);
-            insights.energy.energy_per_unit = (safeSum(energy) / safeSum(df[prodCol].values)).toFixed(2);
+            insights.energy.energy_per_unit = (safeSum(energy) / safeSum(prodVals)).toFixed(2);
         }
         insights.hypothesis.push("📊 Production efficiency metrics calculated.");
     }
 
     // ─── Quality Control ───
-    if (qualityCol) {
+    if (qualityCol && prodVals.length > 0) {
         const defects = cleanNum(df[qualityCol].values);
-        const prod = cleanNum(df[prodCol].values);
-        insights.quality.defect_rate = (safeSum(defects) / safeSum(prod)).toFixed(4);
+        insights.quality.defect_rate = (safeSum(defects) / safeSum(prodVals)).toFixed(4);
         insights.quality.avg_defects = safeMean(defects);
         insights.hypothesis.push("🧪 Quality control (defect rate) calculated.");
     }
@@ -108,14 +107,14 @@ function getManufacturingInsights(df) {
     }
 
     // ─── Workforce Productivity ───
-    if (laborCol) {
+    if (laborCol && prodVals.length > 0) {
         const laborVals = cleanNum(df[laborCol].values);
-        insights.workforce.productivity = (safeSum(df[prodCol].values) / safeSum(laborVals)).toFixed(2);
+        insights.workforce.productivity = (safeSum(prodVals) / safeSum(laborVals)).toFixed(2);
         insights.hypothesis.push("👷 Workforce productivity calculated.");
     }
 
     // ─── Trend & Forecast ───
-    if (dateCol && df.shape[0] >= 3) {
+    if (dateCol && prodCol && df.shape[0] >= 3) {
         try {
             const trends = trendAnalysis(df, dateCol, prodCol);
             insights.trends = trends;
@@ -139,11 +138,11 @@ function getManufacturingInsights(df) {
         ![prodCol, costCol, machineCol, laborCol].includes(col)
     );
 
-    if (catCol) {
+    if (catCol && prodCol) {
         try {
             const grouped = groupByAndAggregate(df, catCol, prodCol, "mean");
             const sorted = grouped.sortValues(prodCol, { ascending: false });
-            const rows = sorted.values.map((row) =>
+            const rows = sorted.values.map(row =>
                 Object.fromEntries(sorted.columns.map((c, i) => [c, row[i]]))
             );
             insights.totals[`production_by_${catCol}`] = rows;
@@ -152,6 +151,36 @@ function getManufacturingInsights(df) {
             insights.hypothesis.push(`🏷 Category breakdown: '${catCol}' analyzed.`);
         } catch (e) {
             insights.hypothesis.push(`⚠️ Category breakdown failed for '${catCol}'.`);
+        }
+    }
+
+    // ─── Additional Defect Analysis ───
+    if (qualityCol) {
+        try {
+            insights.quality.total_defects = df.shape[0];
+
+            if (costCol) {
+                const repairCosts = cleanNum(df[costCol].values);
+                insights.quality.avg_repair_cost = safeMean(repairCosts);
+                insights.quality.total_repair_cost = safeSum(repairCosts);
+            }
+
+            const breakdownCols = ["defect_type", "defect_location", "severity", "inspection_method"];
+            for (const col of breakdownCols) {
+                if (df.columns.includes(col)) {
+                    const grouped = groupByAndAggregate(df, col, costCol, "mean");
+                    const sorted = grouped.sortValues(costCol, { ascending: false });
+                    const rows = sorted.values.map((row) =>
+                        Object.fromEntries(sorted.columns.map((c, i) => [c, row[i]]))
+                    );
+                    insights.quality[`avg_repair_cost_by_${col}`] = rows;
+                    insights.hypothesis.push(`🔍 Repair cost breakdown by '${col}' analyzed.`);
+                }
+            }
+
+            insights.hypothesis.push("🛠 Defect dataset recognized. Added defect count and cost-based insights.");
+        } catch (e) {
+            insights.hypothesis.push(`⚠️ Additional defect insight generation failed: ${e.message}`);
         }
     }
 
