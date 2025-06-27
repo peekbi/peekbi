@@ -34,18 +34,31 @@ exports.subscribeToPlan = async (req, res) => {
         let isPaymentVerified = false;
 
         // Step 1: Verify payment (only if status is 'success')
+        // Step 1: Verify payment (only if status is 'success')
         if (status === 'success') {
             try {
                 const payment = await razorpay.payments.fetch(razorpayPaymentId);
-                isPaymentVerified = payment && payment.status === 'captured';
+
+                // If payment is authorized, try capturing it
+                if (payment.status === 'authorized') {
+                    const captured = await razorpay.payments.capture(
+                        razorpayPaymentId,
+                        payment.amount,
+                        payment.currency
+                    );
+                    isPaymentVerified = captured && captured.status === 'captured';
+                } else {
+                    isPaymentVerified = payment && payment.status === 'captured';
+                }
             } catch (verificationError) {
                 await session.abortTransaction();
                 return res.status(400).json({
-                    message: 'Payment verification failed.',
+                    message: 'Payment verification or capture failed.',
                     error: verificationError.message,
                 });
             }
         }
+
 
         const now = new Date();
 
