@@ -4,6 +4,8 @@ const UserSubscription = require('../model/userSubscriptionModel');
 const UserUsage = require('../model/userUsageModel');
 const PLAN_DEFAULTS = require('../utils/planDefaults');
 const User = require('../model/userModel');
+const mongoose = require('mongoose');
+
 
 exports.subscribeToPlan = async (req, res) => {
     const session = await mongoose.startSession();
@@ -181,6 +183,7 @@ exports.subscribeToPlan = async (req, res) => {
         return res.status(500).json({ message: 'Internal server error', error: err.message });
     }
 };
+
 exports.getSubscriptionDetails = async (req, res) => {
     try {
         const userId = req.user._id;
