@@ -26,5 +26,10 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    - run: npm ci
-    - run: pm2 restart peekbi
+        cache-dependency-path: server/package-lock.json
+    - name: Install dependencies
+      run: npm ci
+      working-directory: server  # 👈 run inside server/
+    - name: Restart PM2 process
+      run: pm2 restart peekbi || pm2 start app.js --name="peekbi"
+      working-directory: server
