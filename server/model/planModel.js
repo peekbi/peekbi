@@ -4,7 +4,7 @@ const planSchema = new mongoose.Schema(
     {
         name: {
             type: String,
-            enum: ['free', 'premium', 'enterprise'],
+            enum: ['free', 'premium', 'enterprise', 'null'],
             required: true,
         },
         razorpayPlanId: {
