@@ -12,4 +12,5 @@ const usageSchema = new mongoose.Schema({
     timestamps: true
 });
 
+
 module.exports = mongoose.model('UserUsage', usageSchema);
