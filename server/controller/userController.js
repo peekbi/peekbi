@@ -30,17 +30,17 @@ module.exports.registerUser = async (req, res) => {
         let plan = await planModel.findOne({ name: 'null' });
         if (!plan) {
             plan = await planModel.create({
-                name: 'null',
+                name: 'free',
                 price: 0,
-                isActive: false,
+                isActive: true,
                 billingInterval: 'monthly',
                 limits: {
-                    download: 0,
-                    uploads: 0,
-                    analyse: 0,
-                    aiPromts: 0,
-                    reports: 0,
-                    charts: 0,
+                    download: 15,
+                    uploads: 20,
+                    analyse: 10,
+                    aiPromts: 5,
+                    reports: 100,
+                    charts: 100,
                     maxUsersPerAccount: 1,
                     dataRetentionDays: 30,
                 },

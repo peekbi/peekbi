@@ -33,22 +33,27 @@ exports.subscribeToPlan = async (req, res) => {
 
         let isPaymentVerified = false;
 
-        // Step 1: Verify payment (only if status is 'success')
-        // Step 1: Verify payment (only if status is 'success')
+        // ✅ Step 1: Verify and capture payment if needed
         if (status === 'success') {
             try {
                 const payment = await razorpay.payments.fetch(razorpayPaymentId);
 
-                // If payment is authorized, try capturing it
+                if (!payment) {
+                    throw new Error('Unable to fetch payment.');
+                }
+
                 if (payment.status === 'authorized') {
+                    // ✅ Auto-capture authorized payment
                     const captured = await razorpay.payments.capture(
                         razorpayPaymentId,
                         payment.amount,
                         payment.currency
                     );
-                    isPaymentVerified = captured && captured.status === 'captured';
+                    isPaymentVerified = captured?.status === 'captured';
+                } else if (payment.status === 'captured') {
+                    isPaymentVerified = true;
                 } else {
-                    isPaymentVerified = payment && payment.status === 'captured';
+                    throw new Error(`Payment is not captured or authorized (status: ${payment.status})`);
                 }
             } catch (verificationError) {
                 await session.abortTransaction();
@@ -59,12 +64,10 @@ exports.subscribeToPlan = async (req, res) => {
             }
         }
 
-
         const now = new Date();
 
-        // Case: Payment is verified — proceed with full subscription setup
+        // ✅ Step 2: Process subscription if payment verified
         if (isPaymentVerified) {
-            // Step 2: Find or create plan
             let plan = await Plan.findOne({ name: planName.toLowerCase() }).session(session);
             if (!plan) {
                 plan = await Plan.create(
@@ -81,7 +84,7 @@ exports.subscribeToPlan = async (req, res) => {
                 plan = plan[0];
             }
 
-            // Optional: Keep plan in sync with defaults
+            // Optional: Keep plan data synced
             Object.assign(plan, {
                 price: defaults.price,
                 billingInterval: defaults.billingInterval,
@@ -90,7 +93,6 @@ exports.subscribeToPlan = async (req, res) => {
             });
             await plan.save({ session });
 
-            // Step 3: Calculate subscription end date
             const endDate = new Date(now);
             switch (plan.billingInterval) {
                 case 'monthly':
@@ -104,7 +106,6 @@ exports.subscribeToPlan = async (req, res) => {
                     break;
             }
 
-            // Step 4: Update or create subscription
             const subscription = await UserSubscription.findOneAndUpdate(
                 { userId },
                 {
@@ -128,7 +129,6 @@ exports.subscribeToPlan = async (req, res) => {
                 { new: true, upsert: true, session }
             );
 
-            // Step 5: Update user record
             await User.findByIdAndUpdate(
                 userId,
                 {
@@ -139,7 +139,6 @@ exports.subscribeToPlan = async (req, res) => {
                 { session }
             );
 
-            // Step 6: Reset usage
             await UserUsage.findOneAndUpdate(
                 { userId },
                 {
@@ -163,7 +162,7 @@ exports.subscribeToPlan = async (req, res) => {
             });
         }
 
-        // Case: Payment failed or unverified — just record failed payment
+        // ❌ Case: Payment failed or unverified
         await UserSubscription.findOneAndUpdate(
             { userId },
             {
