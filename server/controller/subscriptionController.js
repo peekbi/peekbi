@@ -7,6 +7,39 @@ const User = require('../model/userModel');
 const mongoose = require('mongoose');
 
 
+
+// STEP 1: Create Razorpay Order
+exports.createOrder = async (req, res) => {
+    try {
+        const { planName } = req.body;
+        const userId = req.user._id;
+
+        const plan = PLAN_DEFAULTS[planName?.toLowerCase()];
+        if (!plan) return res.status(400).json({ message: 'Invalid plan selected' });
+
+        const order = await razorpay.orders.create({
+            amount: plan.price * 100, // paise
+            currency: 'INR',
+            receipt: `receipt_${userId}_${Date.now()}`,
+            payment_capture: 1, // auto capture
+            notes: { planName, userId },
+        });
+
+        return res.status(200).json({
+            success: true,
+            orderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+        });
+    } catch (error) {
+        console.error('❌ Razorpay order creation failed:', error);
+        return res.status(500).json({ message: 'Order creation failed', error: error.message });
+    }
+};
+
+
+
+// STEP 2: Handle Subscription Logic
 exports.subscribeToPlan = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -16,167 +49,107 @@ exports.subscribeToPlan = async (req, res) => {
         const {
             planName,
             razorpayPaymentId,
-            status,
             razorpayOrderId,
             razorpaySignature,
-            failReason,
         } = req.body;
 
-        if (!planName || !razorpayPaymentId || !status) {
+        const now = new Date();
+
+        if (!planName || !razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
             return res.status(400).json({ message: 'Missing required fields.' });
         }
 
         const defaults = PLAN_DEFAULTS[planName.toLowerCase()];
-        if (!defaults) {
-            return res.status(400).json({ message: 'Invalid plan selected.' });
+        if (!defaults) return res.status(400).json({ message: 'Invalid plan.' });
+
+        // Signature verification
+        const body = `${razorpayOrderId}|${razorpayPaymentId}`;
+        const expectedSignature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(body)
+            .digest('hex');
+
+        if (expectedSignature !== razorpaySignature) {
+            await session.abortTransaction();
+            return res.status(400).json({ message: 'Signature verification failed' });
         }
 
-        let isPaymentVerified = false;
-
-        // ✅ Step 1: Verify and capture payment if needed
-        if (status === 'success') {
-            try {
-                const payment = await razorpay.payments.fetch(razorpayPaymentId);
-
-                if (!payment) {
-                    throw new Error('Unable to fetch payment.');
-                }
-
-                if (payment.status === 'authorized') {
-                    // ✅ Auto-capture authorized payment
-                    const captured = await razorpay.payments.capture(
-                        razorpayPaymentId,
-                        payment.amount,
-                        payment.currency
-                    );
-                    isPaymentVerified = captured?.status === 'captured';
-                } else if (payment.status === 'captured') {
-                    isPaymentVerified = true;
-                } else {
-                    throw new Error(`Payment is not captured or authorized (status: ${payment.status})`);
-                }
-            } catch (verificationError) {
-                await session.abortTransaction();
-                return res.status(400).json({
-                    message: 'Payment verification or capture failed.',
-                    error: verificationError.message,
-                });
-            }
+        // Fetch & validate payment
+        const payment = await razorpay.payments.fetch(razorpayPaymentId);
+        if (!payment || payment.status !== 'captured') {
+            await session.abortTransaction();
+            return res.status(402).json({ message: 'Payment not captured or invalid' });
         }
 
-        const now = new Date();
-
-        // ✅ Step 2: Process subscription if payment verified
-        if (isPaymentVerified) {
-            let plan = await Plan.findOne({ name: planName.toLowerCase() }).session(session);
-            if (!plan) {
-                plan = await Plan.create(
-                    [{
-                        name: planName.toLowerCase(),
-                        price: defaults.price,
-                        isActive: true,
-                        billingInterval: defaults.billingInterval,
-                        limits: defaults.limits,
-                        features: defaults.features,
-                    }],
-                    { session }
-                );
-                plan = plan[0];
-            }
-
-            // Optional: Keep plan data synced
-            Object.assign(plan, {
+        // Get or Create Plan
+        let plan = await Plan.findOne({ name: planName.toLowerCase() }).session(session);
+        if (!plan) {
+            plan = await Plan.create([{
+                name: planName.toLowerCase(),
                 price: defaults.price,
+                isActive: true,
                 billingInterval: defaults.billingInterval,
                 limits: defaults.limits,
                 features: defaults.features,
-            });
-            await plan.save({ session });
-
-            const endDate = new Date(now);
-            switch (plan.billingInterval) {
-                case 'monthly':
-                    endDate.setMonth(now.getMonth() + 1);
-                    break;
-                case 'yearly':
-                    endDate.setFullYear(now.getFullYear() + 1);
-                    break;
-                case 'lifetime':
-                    endDate.setFullYear(now.getFullYear() + 100);
-                    break;
-            }
-
-            const subscription = await UserSubscription.findOneAndUpdate(
-                { userId },
-                {
-                    userId,
-                    planId: plan._id,
-                    startDate: now,
-                    endDate,
-                    isActive: true,
-                    $push: {
-                        paymentHistory: {
-                            amount: plan.price,
-                            status: 'success',
-                            razorpayPaymentId,
-                            razorpayOrderId,
-                            razorpaySignature,
-                            failReason,
-                            date: now,
-                        },
-                    },
-                },
-                { new: true, upsert: true, session }
-            );
-
-            await User.findByIdAndUpdate(
-                userId,
-                {
-                    $addToSet: { subscription: subscription._id },
-                    subscriptionStatus: 'active',
-                    currentPeriodEnd: endDate,
-                },
-                { session }
-            );
-
-            await UserUsage.findOneAndUpdate(
-                { userId },
-                {
-                    userId,
-                    uploads: 0,
-                    downloads: 0,
-                    analyse: 0,
-                    aiPromts: 0,
-                    reports: 0,
-                    charts: 0,
-                },
-                { upsert: true, new: true, session }
-            );
-
-            await session.commitTransaction();
-            session.endSession();
-
-            return res.status(200).json({
-                message: '✅ Subscription activated successfully.',
-                subscription,
-            });
+            }], { session });
+            plan = plan[0];
         }
 
-        // ❌ Case: Payment failed or unverified
-        await UserSubscription.findOneAndUpdate(
+        Object.assign(plan, defaults);
+        await plan.save({ session });
+
+        // Calculate subscription end date
+        const endDate = new Date(now);
+        switch (plan.billingInterval) {
+            case 'monthly': endDate.setMonth(endDate.getMonth() + 1); break;
+            case 'yearly': endDate.setFullYear(endDate.getFullYear() + 1); break;
+            case 'lifetime': endDate.setFullYear(endDate.getFullYear() + 100); break;
+        }
+
+        // Update UserSubscription
+        const subscription = await UserSubscription.findOneAndUpdate(
             { userId },
             {
+                userId,
+                planId: plan._id,
+                startDate: now,
+                endDate,
+                isActive: true,
                 $push: {
                     paymentHistory: {
-                        amount: defaults.price,
-                        status: 'failed',
+                        amount: plan.price,
+                        status: 'success',
                         razorpayPaymentId,
                         razorpayOrderId,
                         razorpaySignature,
-                        failReason,
                         date: now,
                     },
                 },
+            },
+            { new: true, upsert: true, session }
+        );
+
+        // Update User & Usage
+        await User.findByIdAndUpdate(
+            userId,
+            {
+                $addToSet: { subscription: subscription._id },
+                subscriptionStatus: 'active',
+                currentPeriodEnd: endDate,
+            },
+            { session }
+        );
+
+        await UserUsage.findOneAndUpdate(
+            { userId },
+            {
+                userId,
+                uploads: 0,
+                downloads: 0,
+                analyse: 0,
+                aiPromts: 0,
+                reports: 0,
+                charts: 0,
             },
             { upsert: true, new: true, session }
         );
@@ -184,8 +157,9 @@ exports.subscribeToPlan = async (req, res) => {
         await session.commitTransaction();
         session.endSession();
 
-        return res.status(402).json({
-            message: '❌ Payment failed or unverified. Subscription not activated.',
+        return res.status(200).json({
+            message: '✅ Subscription activated successfully.',
+            subscription,
         });
 
     } catch (err) {
@@ -195,7 +169,6 @@ exports.subscribeToPlan = async (req, res) => {
         return res.status(500).json({ message: 'Internal server error', error: err.message });
     }
 };
-
 exports.getSubscriptionDetails = async (req, res) => {
     try {
         const userId = req.user._id;

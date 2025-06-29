@@ -27,7 +27,7 @@ module.exports.registerUser = async (req, res) => {
                 message: "User already exists"
             });
         }
-        let plan = await planModel.findOne({ name: 'null' });
+        let plan = await planModel.findOne({ name: 'free' });
         if (!plan) {
             plan = await planModel.create({
                 name: 'free',

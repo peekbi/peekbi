@@ -2,15 +2,15 @@
 
 const PLAN_DEFAULTS = {
     free: {
-        price: 0,
+        price: 1,
         billingInterval: 'monthly',
         limits: {
-            uploads: 10,
-            download: 5,
-            analyse: 3,
+            uploads: 20,
+            download: 15,
+            analyse: 10,
             aiPromts: 5,
-            reports: 2,
-            charts: 5,
+            reports: 20,
+            charts: 20,
             maxUsersPerAccount: 1,
             dataRetentionDays: 7,
         },
