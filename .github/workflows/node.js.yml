@@ -52,5 +52,5 @@ jobs:
     #   run: npm ci
     #   working-directory: server  # 👈 run inside server/
     - name: Restart PM2 process
-      run: pm2 restart peekbi || pm2 start app.js --name="peekbi"
+      run: pm2 restart peekbi
       working-directory: server
