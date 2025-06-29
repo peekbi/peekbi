@@ -5,7 +5,7 @@ const UserUsage = require('../model/userUsageModel');
 const PLAN_DEFAULTS = require('../utils/planDefaults');
 const User = require('../model/userModel');
 const mongoose = require('mongoose');
-
+const crypto = require('crypto')
 exports.createOrder = async (req, res) => {
     try {
         const { planName } = req.body;
@@ -57,7 +57,7 @@ exports.subscribeToPlan = async (req, res) => {
 
         const now = new Date();
 
-        if (!planName || !razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
+        if (!planName || !razorpayPaymentId || !razorpayOrderId) {
             return res.status(400).json({ message: 'Missing required fields.' });
         }
 
