@@ -6,9 +6,6 @@ const PLAN_DEFAULTS = require('../utils/planDefaults');
 const User = require('../model/userModel');
 const mongoose = require('mongoose');
 
-
-
-// STEP 1: Create Razorpay Order
 exports.createOrder = async (req, res) => {
     try {
         const { planName } = req.body;
@@ -17,11 +14,15 @@ exports.createOrder = async (req, res) => {
         const plan = PLAN_DEFAULTS[planName?.toLowerCase()];
         if (!plan) return res.status(400).json({ message: 'Invalid plan selected' });
 
+        // ✅ Dynamic import inside function (ESM inside CommonJS)
+        const { nanoid } = await import('nanoid');
+        const receiptId = `r_${nanoid(20)}`; // Razorpay limit is 40 chars max
+
         const order = await razorpay.orders.create({
-            amount: plan.price * 100, // paise
+            amount: plan.price * 100,
             currency: 'INR',
-            receipt: `receipt_${userId}_${Date.now()}`,
-            payment_capture: 1, // auto capture
+            receipt: receiptId,
+            payment_capture: 1,
             notes: { planName, userId },
         });
 
@@ -36,6 +37,7 @@ exports.createOrder = async (req, res) => {
         return res.status(500).json({ message: 'Order creation failed', error: error.message });
     }
 };
+
 
 
 
