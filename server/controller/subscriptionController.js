@@ -5,7 +5,8 @@ const UserUsage = require('../model/userUsageModel');
 const PLAN_DEFAULTS = require('../utils/planDefaults');
 const User = require('../model/userModel');
 const mongoose = require('mongoose');
-const crypto = require('crypto')
+const crypto = require('crypto');
+
 exports.createOrder = async (req, res) => {
     try {
         const { planName } = req.body;
@@ -38,9 +39,6 @@ exports.createOrder = async (req, res) => {
     }
 };
 
-
-
-
 // STEP 2: Handle Subscription Logic
 exports.subscribeToPlan = async (req, res) => {
     const session = await mongoose.startSession();
@@ -53,16 +51,45 @@ exports.subscribeToPlan = async (req, res) => {
             razorpayPaymentId,
             razorpayOrderId,
             razorpaySignature,
+            status, // add this field to your request body
+            failReason,
         } = req.body;
 
         const now = new Date();
 
-        if (!planName || !razorpayPaymentId || !razorpayOrderId) {
+        if (!planName || !razorpayPaymentId || !razorpayOrderId || !status) {
             return res.status(400).json({ message: 'Missing required fields.' });
         }
 
         const defaults = PLAN_DEFAULTS[planName.toLowerCase()];
         if (!defaults) return res.status(400).json({ message: 'Invalid plan.' });
+
+        // ⛔ Handle failed or non-success status early
+        if (status !== 'success') {
+            await UserSubscription.findOneAndUpdate(
+                { userId },
+                {
+                    $push: {
+                        paymentHistory: {
+                            amount: defaults.price,
+                            status,
+                            failReason: failReason || 'Unknown error',
+                            razorpayPaymentId,
+                            razorpayOrderId,
+                            razorpaySignature,
+                            date: now,
+                        },
+                    },
+                },
+                { new: true, upsert: true, session }
+            );
+
+            await session.commitTransaction();
+            session.endSession();
+            return res.status(200).json({ message: 'Transaction recorded as failed.', status });
+        }
+
+        // ✅ Proceed only for successful payments
 
         // Signature verification
         const body = `${razorpayOrderId}|${razorpayPaymentId}`;
@@ -171,6 +198,8 @@ exports.subscribeToPlan = async (req, res) => {
         return res.status(500).json({ message: 'Internal server error', error: err.message });
     }
 };
+
+
 exports.getSubscriptionDetails = async (req, res) => {
     try {
         const userId = req.user._id;
