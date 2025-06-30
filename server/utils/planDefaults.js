@@ -2,7 +2,7 @@
 
 const PLAN_DEFAULTS = {
     free: {
-        price: 1,
+        price: 100,
         billingInterval: 'monthly',
         limits: {
             uploads: 20,
@@ -23,7 +23,7 @@ const PLAN_DEFAULTS = {
         },
     },
     premium: {
-        price: 99,
+        price: 9900,
         billingInterval: 'monthly',
         limits: {
             uploads: 100,
@@ -45,7 +45,7 @@ const PLAN_DEFAULTS = {
         billingInterval: 'monthly',
     },
     enterprise: {
-        price: 499,
+        price: 49900,
         billingInterval: 'monthly',
         limits: {
             uploads: 1000,

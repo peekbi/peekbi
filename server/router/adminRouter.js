@@ -3,7 +3,7 @@ const router = express.Router();
 const { getAllUsers, updateUsers, deleteUser, updateUserRole } = require('../controller/userController');
 const checkRole = require('../middlewares/roleMiddleware');
 const testimonialController = require('../controller/testimonialController');
-
+const { assignPlanAsAdmin } = require('../controller/subscriptionController');
 
 router.get('/users', checkRole(['admin']), getAllUsers);
 router.patch('/users/:id', checkRole(['admin']), updateUsers);
@@ -15,5 +15,6 @@ router.get('/testimonials/:id', checkRole(['admin']), testimonialController.getT
 router.put('/testimonials/:id', checkRole(['admin']), testimonialController.updateTestimonial);
 router.delete('/testimonials/:id', checkRole(['admin']), testimonialController.deleteTestimonial);
 
+router.post("/assign-plan", checkRole(['admin']), assignPlanAsAdmin);
 // Export the routes
 module.exports = router;

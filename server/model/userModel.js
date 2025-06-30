@@ -52,7 +52,6 @@ const userSchema = new mongoose.Schema(
         plan: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Plan',
-            required: true,
         },
         subscription: [{
             type: mongoose.Schema.Types.ObjectId,
@@ -65,7 +64,7 @@ const userSchema = new mongoose.Schema(
         },
         subscriptionStatus: {
             type: String,
-            enum: ['active', 'trialing', 'canceled', 'none'],
+            enum: ['active', 'trialing', 'canceled', 'stoped'],
             default: 'trialing',
         },
         currentPeriodEnd: {

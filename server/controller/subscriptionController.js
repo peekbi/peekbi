@@ -163,6 +163,7 @@ exports.subscribeToPlan = async (req, res) => {
             userId,
             {
                 $addToSet: { subscription: subscription._id },
+                $addToSet: { plan: plan._id },
                 subscriptionStatus: 'active',
                 currentPeriodEnd: endDate,
             },
@@ -195,6 +196,110 @@ exports.subscribeToPlan = async (req, res) => {
         await session.abortTransaction();
         session.endSession();
         console.error('❌ Subscription error:', err);
+        return res.status(500).json({ message: 'Internal server error', error: err.message });
+    }
+};
+
+exports.assignPlanAsAdmin = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const { planName, userId } = req.body;
+
+        if (!planName || !userId) {
+            return res.status(400).json({ message: 'Missing planName or userId' });
+        }
+
+        const now = new Date();
+        const defaults = PLAN_DEFAULTS[planName.toLowerCase()];
+        if (!defaults) return res.status(400).json({ message: 'Invalid plan name' });
+
+        // Get or Create Plan
+        let plan = await Plan.findOne({ name: planName.toLowerCase() }).session(session);
+        if (!plan) {
+            plan = await Plan.create([{
+                name: planName.toLowerCase(),
+                price: defaults.price,
+                isActive: true,
+                billingInterval: defaults.billingInterval,
+                limits: defaults.limits,
+                features: defaults.features,
+            }], { session });
+            plan = plan[0];
+        }
+
+        Object.assign(plan, defaults);
+        await plan.save({ session });
+
+        // Calculate end date
+        const endDate = new Date(now);
+        switch (plan.billingInterval) {
+            case 'monthly': endDate.setMonth(endDate.getMonth() + 1); break;
+            case 'yearly': endDate.setFullYear(endDate.getFullYear() + 1); break;
+            case 'lifetime': endDate.setFullYear(endDate.getFullYear() + 100); break;
+        }
+
+        // Update Subscription
+        const subscription = await UserSubscription.findOneAndUpdate(
+            { userId },
+            {
+                userId,
+                planId: plan._id,
+                startDate: now,
+                endDate,
+                isActive: true,
+                $push: {
+                    paymentHistory: {
+                        amount: 0,
+                        status: 'assigned_by_admin',
+                        razorpayPaymentId: null,
+                        razorpayOrderId: null,
+                        razorpaySignature: null,
+                        date: now,
+                    },
+                },
+            },
+            { new: true, upsert: true, session }
+        );
+
+        // Update User & Usage
+        await User.findByIdAndUpdate(
+            userId,
+            {
+                $addToSet: { subscription: subscription._id },
+                subscriptionStatus: 'active',
+                currentPeriodEnd: endDate,
+            },
+            { session }
+        );
+
+        await UserUsage.findOneAndUpdate(
+            { userId },
+            {
+                userId,
+                uploads: 0,
+                downloads: 0,
+                analyse: 0,
+                aiPromts: 0,
+                reports: 0,
+                charts: 0,
+            },
+            { upsert: true, new: true, session }
+        );
+
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.status(200).json({
+            message: '✅ Plan assigned to user successfully by admin.',
+            subscription,
+        });
+
+    } catch (err) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error('❌ Admin Plan Assignment Error:', err);
         return res.status(500).json({ message: 'Internal server error', error: err.message });
     }
 };
