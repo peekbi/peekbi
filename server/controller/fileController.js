@@ -142,7 +142,7 @@ exports.extractRawData = async (req, res) => {
         // ✅ Increment usage count if usage tracking is attached by middleware
         if (req.planUsage && req.planUsage.featureKey === 'download') {
             const { usage } = req.planUsage;
-            usage.downloads = (usage.downloads || 0) + 1;
+            usage.download = (usage.download || 0) + 1;
             await usage.save();
         }
         return res.status(200).json({

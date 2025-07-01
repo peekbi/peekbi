@@ -15,6 +15,6 @@ router.get('/testimonials/:id', checkRole(['admin']), testimonialController.getT
 router.put('/testimonials/:id', checkRole(['admin']), testimonialController.updateTestimonial);
 router.delete('/testimonials/:id', checkRole(['admin']), testimonialController.deleteTestimonial);
 
-router.post("/assign-plan", checkRole(['admin']), assignPlanAsAdmin);
+router.post("/assign-plan", assignPlanAsAdmin);
 // Export the routes
 module.exports = router;
