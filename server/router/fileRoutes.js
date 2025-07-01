@@ -31,7 +31,7 @@ router.post('/upload/:userId', authorization, planMiddleware('uploads'), (req, r
 router.get('/all/:userId', authorization, getAllFiles);
 router.get('/download/:userId/:fileId', authorization, planMiddleware('analyse'), extractRawData);
 router.get('/analyse/:userId/:fileId', authorization, planMiddleware('analyse'), performAnalysis);
-router.get('/rawData/:userId/:fileId', authorization, planMiddleware('rawData'), extractRawData);
+router.get('/rawData/:userId/:fileId', authorization, planMiddleware('download'), extractRawData);
 // You must authenticate user and attach user object to req.user before this
 router.post('/promts', authorization, planMiddleware('aiPromts'), incrementAIPromptUsage);
 

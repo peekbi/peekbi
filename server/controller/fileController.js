@@ -140,9 +140,9 @@ exports.extractRawData = async (req, res) => {
         const decryptedBuffer = decryptBuffer(encryptedBuffer);
         const jsonData = JSON.parse(decryptedBuffer.toString());
         // ✅ Increment usage count if usage tracking is attached by middleware
-        if (req.planUsage && req.planUsage.featureKey === 'rawData') {
+        if (req.planUsage && req.planUsage.featureKey === 'download') {
             const { usage } = req.planUsage;
-            usage.downloads = (usage.downloads || 0) + 1;
+            usage.download = (usage.download || 0) + 1;
             await usage.save();
         }
         return res.status(200).json({
