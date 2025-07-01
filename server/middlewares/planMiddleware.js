@@ -1,47 +1,67 @@
 const userModel = require('../model/userModel');
 const userSubscriptionModel = require('../model/userSubscriptionModel');
 const usageModel = require('../model/userUsageModel');
+const planModel = require('../model/planModel');
 
 const planMiddleware = (featureKey) => {
     return async (req, res, next) => {
         try {
             const user = req.user;
-            if (!user) {
-                return res.status(401).json({ message: "Unauthorized: No user found." });
+            if (!user) return res.status(401).json({ message: "Unauthorized: No user found." });
+
+            const now = new Date();
+
+            // Step 1: Fetch full user, subscription, and plan
+            let fullUser = await userModel.findById(user._id).lean();
+            if (!fullUser) return res.status(403).json({ message: "User not found." });
+
+            let subscription = await userSubscriptionModel.findOne({
+                userId: user._id,
+            }).populate('planId');
+
+            let plan = subscription?.planId;
+
+            // Step 2: Expiry & status check — auto deactivate if needed
+            const isExpired = fullUser.currentPeriodEnd && new Date(fullUser.currentPeriodEnd) < now;
+
+            if (
+                fullUser.subscriptionStatus === 'active' &&
+                subscription?.isActive &&
+                plan?.isActive &&
+                isExpired
+            ) {
+                // Mark all as inactive
+                await Promise.all([
+                    userModel.findByIdAndUpdate(user._id, {
+                        subscriptionStatus: 'stopped',
+                    }),
+                    userSubscriptionModel.findByIdAndUpdate(subscription._id, {
+                        isActive: false,
+                    }),
+                    planModel.findByIdAndUpdate(plan._id, {
+                        isActive: false,
+                    }),
+                ]);
+
+                return res.status(403).json({ message: "Your plan has expired. Please renew to continue." });
             }
 
-            // Step 1: Try to get active subscription
-            let subscription = await userSubscriptionModel
-                .findOne({ userId: user._id, isActive: true })
-                .populate('planId');
-
-            let plan;
-
-            if (subscription?.planId) {
-                plan = subscription.planId; // ✅ Paid plan
-            } else {
-                const fullUser = await userModel.findById(user._id).populate('plan');
-
-                if (!fullUser) {
-                    console.log("User not found in DB:", user._id);
-                    return res.status(403).json({ message: "User not found." });
-                }
-
-                if (!fullUser.plan) {
-                    console.log("Populated plan is missing. Raw user:", fullUser);
-                    return res.status(403).json({ message: "No plan assigned to user." });
-                }
-
-                plan = fullUser.plan;
-
+            // Step 3: Check all active flags now
+            if (
+                fullUser.subscriptionStatus !== 'active' ||
+                !subscription?.isActive ||
+                !plan?.isActive
+            ) {
+                return res.status(403).json({ message: "Inactive or expired plan. Access denied." });
             }
 
+            // Step 4: Check feature limit
             const limit = plan.limits?.[featureKey];
             if (limit === undefined) {
                 return res.status(400).json({ message: `Plan does not define a limit for: ${featureKey}` });
             }
 
-            // Step 3: Usage tracking
+            // Step 5: Usage tracking
             const usage = await usageModel.findOne({ userId: user._id }) || new usageModel({ userId: user._id });
             const current = usage[featureKey] || 0;
 
@@ -53,6 +73,7 @@ const planMiddleware = (featureKey) => {
 
             req.planUsage = { usage, featureKey };
             next();
+
         } catch (err) {
             console.error("🔧 Plan Middleware Error:", err);
             res.status(500).json({ message: "Server error during plan validation." });

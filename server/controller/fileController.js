@@ -107,6 +107,7 @@ exports.performAnalysis = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Analysis performed successfully.',
+            rawData: jsonData,
             analysis: {
                 summary,
                 insights,
@@ -168,35 +169,6 @@ exports.downloadUserFile = async (req, res) => {
     } catch (error) {
         console.error('Download error:', error);
         res.status(500).json({ error: 'Error downloading or decrypting the file' });
-    }
-};
-
-exports.getFileAnalysis = async (req, res) => {
-    const { userId, fileId } = req.params;
-
-    const userDoc = await UserFile.findOne({ userId });
-    if (!userDoc) return res.status(404).json({ error: 'User not found' });
-
-    const fileEntry = userDoc.files.find(f => f._id.toString() === fileId);
-    if (!fileEntry) return res.status(404).json({ error: 'File not found' });
-
-    if (!fileEntry.analysisS3Key) {
-        return res.status(404).json({ error: 'Full analysis not available for this file.' });
-    }
-
-    try {
-        const s3Response = await s3Client.send(new GetObjectCommand({
-            Bucket: BUCKET_NAME,
-            Key: fileEntry.analysisS3Key,
-        }));
-
-        const buffer = await streamToBuffer(s3Response.Body);
-        const fullAnalysis = JSON.parse(buffer.toString());
-
-        res.json({ fullAnalysis });
-    } catch (err) {
-        console.error('Error retrieving full analysis from S3:', err);
-        res.status(500).json({ error: 'Failed to fetch analysis from S3' });
     }
 };
 
