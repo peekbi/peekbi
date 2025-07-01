@@ -24,7 +24,7 @@ const planSchema = new mongoose.Schema(
 
         limits: {
             uploads: Number,
-            downloads: Number,
+            download: Number,
             analyse: Number,
             aiPromts: Number,
             reports: Number,
