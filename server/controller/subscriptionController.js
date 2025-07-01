@@ -175,7 +175,7 @@ exports.subscribeToPlan = async (req, res) => {
             {
                 userId,
                 uploads: 0,
-                downloads: 0,
+                download: 0,
                 analyse: 0,
                 aiPromts: 0,
                 reports: 0,
@@ -279,7 +279,7 @@ exports.assignPlanAsAdmin = async (req, res) => {
             {
                 userId,
                 uploads: 0,
-                downloads: 0,
+                download: 0,
                 analyse: 0,
                 aiPromts: 0,
                 reports: 0,
