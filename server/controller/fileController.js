@@ -120,6 +120,44 @@ exports.performAnalysis = async (req, res) => {
     }
 };
 
+// 🔍 Extract Raw Data (Download JSON ➝ Decrypt ➝ Return)
+exports.extractRawData = async (req, res) => {
+    const { userId, fileId } = req.params;
+
+    try {
+        const userDoc = await UserFile.findOne({ userId });
+        if (!userDoc) return res.status(404).json({ error: 'User not found' });
+
+        const fileEntry = userDoc.files.find(f => f._id.toString() === fileId);
+        if (!fileEntry) return res.status(404).json({ error: 'File not found' });
+
+        const s3Response = await s3Client.send(new GetObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: fileEntry.analysisS3Key,
+        }));
+
+        const encryptedBuffer = await streamToBuffer(s3Response.Body);
+        const decryptedBuffer = decryptBuffer(encryptedBuffer);
+        const jsonData = JSON.parse(decryptedBuffer.toString());
+        // ✅ Increment usage count if usage tracking is attached by middleware
+        if (req.planUsage && req.planUsage.featureKey === 'rawData') {
+            const { usage } = req.planUsage;
+            usage.downloads = (usage.downloads || 0) + 1;
+            await usage.save();
+        }
+        return res.status(200).json({
+            success: true,
+            message: 'Raw data extracted successfully.',
+            rawData: jsonData,
+        });
+
+    } catch (error) {
+        console.error('Raw Data Extraction Error:', error);
+        res.status(500).json({ error: 'Error extracting raw data' });
+    }
+};
+
+
 exports.getAllFiles = async (req, res) => {
     const userId = req.params.userId;
     const userDoc = await UserFile.findOne({ userId });
