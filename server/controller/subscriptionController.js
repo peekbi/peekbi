@@ -20,7 +20,7 @@ exports.createOrder = async (req, res) => {
         const receiptId = `r_${nanoid(20)}`; // Razorpay limit is 40 chars max
 
         const order = await razorpay.orders.create({
-            amount: plan.price * 100,
+            amount: plan.price,
             currency: 'INR',
             receipt: receiptId,
             payment_capture: 1,
