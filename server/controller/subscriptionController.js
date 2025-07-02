@@ -164,7 +164,7 @@ exports.subscribeToPlan = async (req, res) => {
             userId,
             {
                 $addToSet: { subscription: subscription._id },
-                $addToSet: { plan: plan._id },
+                $set: { plan: plan._id },
                 subscriptionStatus: 'active',
                 currentPeriodEnd: endDate,
             },
