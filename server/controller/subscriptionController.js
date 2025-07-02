@@ -125,6 +125,7 @@ exports.subscribeToPlan = async (req, res) => {
         }
 
         Object.assign(plan, defaults);
+        plan.isActive = true;
         await plan.save({ session });
 
         // Calculate subscription end date
@@ -230,6 +231,7 @@ exports.assignPlanAsAdmin = async (req, res) => {
         }
 
         Object.assign(plan, defaults);
+        plan.isActive = true;
         await plan.save({ session });
 
         // Calculate end date
