@@ -65,9 +65,7 @@ const planMiddleware = (featureKey) => {
             // Step 5: Usage tracking
             const usage = await usageModel.findOne({ userId: user._id }) || new usageModel({ userId: user._id });
             const current = usage[featureKey] || 0;
-            console.log(`[USAGE CHECK] ${featureKey} — Used: ${current}, Limit: ${limit}`);
             if (current >= limit) {
-                console.log(`[LIMIT EXCEEDED] Blocking ${featureKey} for user ${user._id}`);
                 return res.status(403).json({
                     message: `Limit exceeded for ${featureKey}. Used: ${current}/${limit}. Upgrade your plan.`,
                 });

@@ -376,7 +376,7 @@ exports.getUsageHistory = async (req, res) => {
 
         return res.status(200).json({
             uploads: usage.uploads || 0,
-            downloads: usage.downloads || 0,
+            download: usage.download || 0,
             analyse: usage.analyse || 0,
             aiPromts: usage.aiPromts || 0,
             reports: usage.reports || 0,
