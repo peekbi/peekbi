@@ -62,7 +62,7 @@ function getFirstDateCol(df, threshold = 0.3) {
     }
     return null;
 }
-const numericCols = getNumericCols(df);
+
 
 // ────── INVESTMENT KEYWORDS & DETECTION ──────
 const investmentKeywordMap = {
@@ -100,7 +100,7 @@ function getFinanceInsights(df) {
         variance: {},
         hypothesis: []
     };
-
+    const numericCols = getNumericCols(df);
     const revenueCol = fuzzyMatch(df, ["revenue", "sales", "amount", "income", "checking", "transaction"]) || getFirstNumericCol(df);
     const expenseCol = fuzzyMatch(df, ["expense", "cost", "spend", "debit", "withdrawal"]) || numericCols[2];
     const dateCol = fuzzyMatch(df, ["date", "timestamp", "period", "time", 'month', 'year', 'period']) || getFirstDateCol(df);
