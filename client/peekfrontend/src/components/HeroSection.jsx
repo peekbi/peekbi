@@ -57,9 +57,9 @@ const HeroSection = forwardRef((props, heroRef) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
             >
-              Advanced Analytics-Powerful insights with machine learning algorithms. <br />
-              Real-time Monitoring-Track performance and trends in real-time. <br />
-              Secure & Reliable-Enterprise-grade security for your data.
+              PeekBI transforms raw data into real-time intelligence with zero hassle. <br />
+              Powered by AI and built with enterprise-grade security, it's your all-in-one <br />
+              Toolkit for smarter, faster, and safer decision-making..
             </motion.p>
 
             <motion.div
