@@ -38,16 +38,40 @@ function getManufacturingInsights(df) {
         trends: [],
         hypothesis: []
     };
+  function getFirstNumericCol(df) {
+        for (const col of df.columns) {
+            const vals = df[col].values;
+            if (vals.some(v => !isNaN(parseFloat(v)))) return col;
+        }
+        return null;
+    }
 
-    const prodCol = fuzzyMatch(df, ["produce", "unit", "output", "volume", "production", 'unitproduced', 'unitsproduced', 'product_id']);
-    const costCol = fuzzyMatch(df, ["cost", "expense", "spend", 'productioncost', 'repair_cost']);
-    const qualityCol = fuzzyMatch(df, ["defect", "quality", "reject", "scrap", 'defectrate', 'defect_id']);
-    const machineCol = fuzzyMatch(df, ["machine", "downtime", "uptime", "maintenance", 'machineuptime', 'machinedowntime', 'machinemaintenance']);
+    function getNumericCols(df) {
+        return df.columns.filter(col =>
+            df[col].values.some(v => !isNaN(parseFloat(v)))
+        );
+    }
+
+    function getFirstDateCol(df, threshold = 0.3) {
+        for (const col of df.columns) {
+            const vals = df[col].values;
+            const validCount = vals.filter(v => !isNaN(Date.parse(v))).length;
+            if ((validCount / vals.length) >= threshold) {
+                return col;
+            }
+        }
+        return null;
+    }
+    const numericCols = getNumericCols(df);
+    const prodCol = fuzzyMatch(df, ["produce", "unit", "output", "volume", "production", 'unitproduced', 'unitsproduced', 'product_id']) || getFirstNumericCol(df);
+    const costCol = fuzzyMatch(df, ["cost", "expense", "spend", 'productioncost', 'repair_cost']) || numericCols[1] || numericCols[0] || null;
+    const qualityCol = fuzzyMatch(df, ["defect", "quality", "reject", "scrap", 'defectrate', 'defect_id']) || numericCols[2] || numericCols[1] || numericCols[0] || null;
+    const machineCol = fuzzyMatch(df, ["machine", "downtime", "uptime", "maintenance", 'machineuptime', 'machinedowntime', 'machinemaintenance']) || numericCols[numericCols.length -1] || null;
     const leadTimeCol = fuzzyMatch(df, ["leadtime", "delivery", "supply"]);
-    const materialCol = fuzzyMatch(df, ["material", "raw", "input"]);
+    const materialCol = fuzzyMatch(df, ["material", "raw", "input"]) || numericCols[3] || numericCols[2] || numericCols[1] || numericCols[0] || null;;
     const energyCol = fuzzyMatch(df, ["energy", "power", "electricity"]);
     const laborCol = fuzzyMatch(df, ["labor", "workforce", "staff", "manpower"]);
-    const dateCol = fuzzyMatch(df, ["date", "period", "time", "timestamp", 'month', 'defect_date']);
+    const dateCol = fuzzyMatch(df, ["date", "period", "time", "timestamp", 'month', 'defect_date']) || getFirstDateCol(df);
 
     const prodVals = prodCol ? cleanNum(df[prodCol].values) : [];
 

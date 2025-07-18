@@ -34,6 +34,23 @@ function getFirstNumericCol(df) {
     return null;
 }
 
+function getNumericCols(df) {
+    return df.columns.filter(col =>
+        df[col].values.some(v => !isNaN(parseFloat(v)))
+    );
+}
+
+function getFirstDateCol(df, threshold = 0.3) {
+    for (const col of df.columns) {
+        const vals = df[col].values;
+        const validCount = vals.filter(v => !isNaN(Date.parse(v))).length;
+        if ((validCount / vals.length) >= threshold) {
+            return col;
+        }
+    }
+    return null;
+}
+
 function dynamicBreakdown(df, valueCol, insights) {
     df.columns.forEach(col => {
         if (col === valueCol) return;
@@ -71,22 +88,22 @@ function getEducationInsights(df) {
         totals: {},
         trends: [],
     };
-
+    const numericCols = getNumericCols(df);
     const scoreCol = fuzzyMatch(df, ["score", "marks", "grade", "result", "performance"], "number") || getFirstNumericCol(df);
     const studentCol = fuzzyMatch(df, ["student", "name", "learner"]);
     const subjectCol = fuzzyMatch(df, ["subject", "course", "class"]);
-    const dateCol = fuzzyMatch(df, ["year", "date", "month", "timestamp"]);
+    const dateCol = fuzzyMatch(df, ["year", "date", "month", "timestamp"]) || getFirstDateCol(df);
     const attendanceCol = fuzzyMatch(df, ["attendance", "present", "absent", "attendancerate"], "number");
     const completionCol = fuzzyMatch(df, ["completion", "status", "coursecompleted", "completionrate"], "number");
     const resourceCol = fuzzyMatch(df, ["resource", "usage", "time", "hour", "videos"], "number");
     const teacherCol = fuzzyMatch(df, ["teacher", "instructor", "faculty"]);
-    const budgetCol = fuzzyMatch(df, ["budget", "cost", "expenditure"], "number");
-    const alumniCol = fuzzyMatch(df, ["alumni", "employed", "career", "placement"]);
+    const budgetCol = fuzzyMatch(df, ["budget", "cost", "expenditure"], "number") || numericCols[1] || numericCols[0] || null;;
+    const alumniCol = fuzzyMatch(df, ["alumni", "employed", "career", "placement"]) || numericCols[numericCols.length - 1] || null;
     const infrastructureCol = fuzzyMatch(df, ["lab", "library", "facility", "infrastructure"], "number");
-    const enrollmentCol = fuzzyMatch(df, ["enrollment", "registered", "join"], "number");
-    const dropoutCol = fuzzyMatch(df, ["dropout", "retention", "left"], "number");
+    const enrollmentCol = fuzzyMatch(df, ["enrollment", "registered", "join"], "number") || numericCols[2] || numericCols[2] || numericCols[1] || numericCols[0] || null;;
+    const dropoutCol = fuzzyMatch(df, ["dropout", "retention", "left"], "number") || numericCols[3] || numericCols[2] || numericCols[1] || numericCols[0] || null;;
 
-    const scores = cleanNum(df[scoreCol]?.values ?? []);
+    const scores = cleanNum(df[scoreCol]?.values ?? []) || getFirstNumericCol(df);
 
     insights.kpis.total_score = safeSum(scores);
     insights.kpis.avg_score = safeMean(scores);

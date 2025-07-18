@@ -29,7 +29,31 @@ function getRetailInsights(df) {
 
     df.columns = df.columns.map(col => col.trim());
     const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+    function getFirstNumericCol(df) {
+        for (const col of df.columns) {
+            const vals = df[col].values;
+            if (vals.some(v => !isNaN(parseFloat(v)))) return col;
+        }
+        return null;
+    }
 
+    function getNumericCols(df) {
+        return df.columns.filter(col =>
+            df[col].values.some(v => !isNaN(parseFloat(v)))
+        );
+    }
+
+    function getFirstDateCol(df, threshold = 0.3) {
+        for (const col of df.columns) {
+            const vals = df[col].values;
+            const validCount = vals.filter(v => !isNaN(Date.parse(v))).length;
+            if ((validCount / vals.length) >= threshold) {
+                return col;
+            }
+        }
+        return null;
+    }
+    const numericCols = getNumericCols(df);
     const rawCols = {
         quantity: ['qty', 'quantity', 'units sold', 'unitsold', 'sold quantity', 'sold_qty', 'order quantity', 'order_qty', 'qty sold'],
         unitPrice: ['unit price', 'unitprice', 'unit cost', 'unitcost', 'price', 'price per unit', 'rate', 'cost per item', 'item price'],
@@ -58,18 +82,18 @@ function getRetailInsights(df) {
     const colMatch = type => safeMatch(rawCols[type]);
 
     // Column detection
-    const quantityCol = colMatch("quantity");
-    const unitPriceCol = colMatch("unitPrice");
-    let salesCol = colMatch("sales");
-    let profitCol = colMatch("profit");
-    let costCol = colMatch("cost");
-    let lossCol = colMatch("loss");
-    const categoryCol = colMatch("category");
-    const regionCol = colMatch("region");
-    const dateCol = colMatch("date");
-    const customerCol = colMatch("customer");
-    const returnCol = colMatch("returnFlag");
-    const promoCol = colMatch("promotionFlag");
+    const quantityCol = colMatch("quantity") || numericCols[1];
+    const unitPriceCol = colMatch("unitPrice") || numericCols[2];
+    let salesCol = colMatch("sales") || numericCols[3];
+    let profitCol = colMatch("profit") || numericCols[4];
+    let costCol = colMatch("cost") || numericCols[3];
+    let lossCol = colMatch("loss") || numericCols[6];
+    const categoryCol = colMatch("category") || numericCols[7];
+    const regionCol = colMatch("region") || numericCols[8];
+    const dateCol = colMatch("date") || getFirstDateCol(df);
+    const customerCol = colMatch("customer") || getFirstNumericCol(df);
+    const returnCol = colMatch("returnFlag") || numericCols[numericCols.length - 1];
+    const promoCol = colMatch("promotionFlag") || numericCols[numericCols.length - 2];
 
     // Compute helper
     const computeColumn = (col1, col2, fn, name) => {

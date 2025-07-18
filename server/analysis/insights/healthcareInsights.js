@@ -45,20 +45,45 @@ function getHealthcareInsights(df) {
         highPerformers: {},
         lowPerformers: {}
     };
+    function getFirstNumericCol(df) {
+        for (const col of df.columns) {
+            const vals = df[col].values;
+            if (vals.some(v => !isNaN(parseFloat(v)))) return col;
+        }
+        return null;
+    }
+
+    function getNumericCols(df) {
+        return df.columns.filter(col =>
+            df[col].values.some(v => !isNaN(parseFloat(v)))
+        );
+    }
+
+    function getFirstDateCol(df, threshold = 0.3) {
+        for (const col of df.columns) {
+            const vals = df[col].values;
+            const validCount = vals.filter(v => !isNaN(Date.parse(v))).length;
+            if ((validCount / vals.length) >= threshold) {
+                return col;
+            }
+        }
+        return null;
+    }
+    const numericCols = getNumericCols(df);
 
     const match = (keywords, type = "string") => fuzzyMatch(df, keywords, type);
 
-    const admissionCol = match(["admission", "visit", "encounter"], "number");
-    const departmentCol = match(["department", "unit", "ward"]);
-    const diseaseCol = match(["disease", "diagnosis", "condition", "icd"]);
-    const treatmentCol = match(["treatment", "therapy", "procedure"]);
-    const outcomeCol = match(["outcome", "result", "status"]);
-    const bedCol = match(["bed", "occupancy", "room"], "number");
+    const admissionCol = match(["admission", "visit", "encounter"], "number") || getFirstNumericCol(df);
+    const departmentCol = match(["department", "unit", "ward"]) || numericCols[2]  || numericCols[1] || numericCols[0] || null;;
+    const diseaseCol = match(["disease", "diagnosis", "condition", "icd"]) || numericCols[3] || numericCols[2] || numericCols[1] || numericCols[0] || null;;
+    const treatmentCol = match(["treatment", "therapy", "procedure"]) || numericCols[4] || numericCols[3] || numericCols[2] || numericCols[1] || numericCols[0] || null;;
+    const outcomeCol = match(["outcome", "result", "status"]) || numericCols[numericCols.length -1] || null;
+    const bedCol = match(["bed", "occupancy", "room"], "number") || numericCols[5] || numericCols[4] || numericCols[3] || numericCols[2] || numericCols[1] || numericCols[0] || null;;
     const staffCol = match(["staff", "nurse", "doctor", "personnel"]);
     const equipmentCol = match(["equipment", "machine", "device"]);
     const insuranceCol = match(["insurance", "payer", "claim"]);
     const medicationCol = match(["medication", "drug", "prescription", "rx"]);
-    const dateCol = match(["date", "admission date", "timestamp", "period"]);
+    const dateCol = match(["date", "admission date", "timestamp", "period"]) || getFirstDateCol(df);
 
     // 1. Admissions by department
     if (admissionCol && departmentCol) {

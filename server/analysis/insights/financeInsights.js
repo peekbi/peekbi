@@ -38,9 +38,35 @@ function deriveCategorical(df) {
     }
     return null;
 }
+function getFirstNumericCol(df) {
+    for (const col of df.columns) {
+        const vals = df[col].values;
+        if (vals.some(v => !isNaN(parseFloat(v)))) return col;
+    }
+    return null;
+}
+
+function getNumericCols(df) {
+    return df.columns.filter(col =>
+        df[col].values.some(v => !isNaN(parseFloat(v)))
+    );
+}
+
+function getFirstDateCol(df, threshold = 0.3) {
+    for (const col of df.columns) {
+        const vals = df[col].values;
+        const validCount = vals.filter(v => !isNaN(Date.parse(v))).length;
+        if ((validCount / vals.length) >= threshold) {
+            return col;
+        }
+    }
+    return null;
+}
+const numericCols = getNumericCols(df);
+
 // ────── INVESTMENT KEYWORDS & DETECTION ──────
 const investmentKeywordMap = {
-    mutual_funds: ["mutualfund", "mutual_fund"],
+    mutual_funds: ["mutualfund", "mutual_fund"] || getFirstNumericCol(df),
     equity: ["equity", "stock", "stockmarket", "stock_market"],
     debentures: ["debenture"],
     bonds: ["bond", "governmentbond"],
@@ -75,11 +101,11 @@ function getFinanceInsights(df) {
         hypothesis: []
     };
 
-    const revenueCol = fuzzyMatch(df, ["revenue", "sales", "amount", "income", "checking", "transaction"]);
-    const expenseCol = fuzzyMatch(df, ["expense", "cost", "spend", "debit", "withdrawal"]);
-    const dateCol = fuzzyMatch(df, ["date", "timestamp", "period", "time", 'month', 'year', 'period']);
-    const metricCol = fuzzyMatch(df, ["metric", "type", "category", "label"], "string");
-    const customerCol = fuzzyMatch(df, ["customer", "client", "user", 'sme', 'enterprise', 'retail'], "string");
+    const revenueCol = fuzzyMatch(df, ["revenue", "sales", "amount", "income", "checking", "transaction"]) || getFirstNumericCol(df);
+    const expenseCol = fuzzyMatch(df, ["expense", "cost", "spend", "debit", "withdrawal"]) || numericCols[2];
+    const dateCol = fuzzyMatch(df, ["date", "timestamp", "period", "time", 'month', 'year', 'period']) || getFirstDateCol(df);
+    const metricCol = fuzzyMatch(df, ["metric", "type", "category", "label"], "string") || numericCols[3];
+    const customerCol = fuzzyMatch(df, ["customer", "client", "user", 'sme', 'enterprise', 'retail'], "string") || numericCols[0] || null;
 
     if (!revenueCol) {
         insights.hypothesis.push(" Revenue column not found.");
