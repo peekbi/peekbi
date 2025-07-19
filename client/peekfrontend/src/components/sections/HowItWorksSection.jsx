@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { FiUpload, FiBarChart2, FiZap, FiMessageSquare, FiChevronRight } from 'react-icons/fi';
+import { FiUpload, FiBarChart2, FiZap, FiMessageSquare, FiChevronRight, FiDownload } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 
     const steps = [
@@ -118,8 +118,27 @@ const HowItWorksSection = () => {
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
+                                onClick={() => {
+                                    // Create a sample CSV content for download
+                                    const sampleData = `Date,Sales,Revenue,Category
+2024-01-01,150,15000,${industry.name}
+2024-01-02,200,20000,${industry.name}
+2024-01-03,175,17500,${industry.name}
+2024-01-04,225,22500,${industry.name}
+2024-01-05,180,18000,${industry.name}`;
+                                    
+                                    const blob = new Blob([sampleData], { type: 'text/csv' });
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `${industry.name.toLowerCase()}-sample-data.csv`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
+                                    document.body.removeChild(a);
+                                }}
                             >
-                                <FiMessageSquare className="w-4 h-4" />
+                                <FiDownload className="w-4 h-4" />
                                 {industry.name}
                             </motion.button>
                         ))}

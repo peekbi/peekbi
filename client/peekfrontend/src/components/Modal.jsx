@@ -23,7 +23,7 @@ export default function Modal({ isOpen, onClose, children }) {
           onClick={onClose}
         >
           <motion.div
-            className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-10 m-4 max-h-[90vh] overflow-y-auto"
+            className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-10 m-4 max-h-[90vh] overflow-y-auto"
             initial="hidden"
             animate="visible"
             exit="hidden"

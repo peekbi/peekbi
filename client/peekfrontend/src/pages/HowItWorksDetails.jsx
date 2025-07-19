@@ -1,13 +1,18 @@
 import { motion } from 'framer-motion';
 import { FiCopy, FiDownload, FiCheck, FiArrowLeft, FiChevronUp, FiChevronDown, FiUser, FiCreditCard, FiUpload, FiBarChart2, FiMessageSquare, FiFileText, FiShare2 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 
 const HowItWorksDetails = () => {
     const [copiedColumn, setCopiedColumn] = useState(null);
     const [expandedSections, setExpandedSections] = useState({});
     const [copiedColumns, setCopiedColumns] = useState({});
+
+    // Scroll to top when component mounts
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
 
     const copyToClipboard = (text, key) => {
         navigator.clipboard.writeText(text).then(() => {
