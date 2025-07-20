@@ -66,8 +66,8 @@ const ContactUs = () => {
                                     <FiMail className="w-6 h-6 text-blue-600 mt-1" />
                                     <div>
                                         <h3 className="font-medium text-gray-900">Email</h3>
-                                        <p className="text-gray-600">support@peekbi.com</p>
-                                        <p className="text-gray-600">sales@peekbi.com</p>
+                                        <p className="text-gray-600">hello@peekbi.com</p>
+                                        <p className="text-gray-600">letstalk@peekbi.com</p>
                                     </div>
                                 </div>
 
@@ -75,8 +75,8 @@ const ContactUs = () => {
                                     <FiPhone className="w-6 h-6 text-blue-600 mt-1" />
                                     <div>
                                         <h3 className="font-medium text-gray-900">Phone</h3>
-                                        <p className="text-gray-600">+1 (555) 123-4567</p>
-                                        <p className="text-gray-600">Mon-Fri, 9am-6pm EST</p>
+                                        <p className="text-gray-600">+91 9771068190</p>
+                                        <p className="text-gray-600">Mon-Fri, 9am-6pm IST</p>
                                     </div>
                                 </div>
 
@@ -85,10 +85,11 @@ const ContactUs = () => {
                                     <div>
                                         <h3 className="font-medium text-gray-900">Address</h3>
                                         <p className="text-gray-600">
-                                            123 Business Street<br />
-                                            Suite 456<br />
-                                            New York, NY 10001<br />
-                                            United States
+                                            Office no. 219<br />
+                                            Biscomaun Bhawan<br />
+                                            IT Hub<br />
+                                            Patna , Bihar <br />
+                                            800001.
                                         </p>
                                     </div>
                                 </div>

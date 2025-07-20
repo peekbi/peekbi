@@ -20,7 +20,7 @@ const BlogSection = () => {
     {
       title: "Why Small Businesses Need Business Intelligence (More Than Ever)",
       excerpt: "Because today, decisions can't wait — and neither can your growth.",
-      image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=400&fit=crop",
+      image: "https://www.incworx.com/wp-content/uploads/2022/10/benefits-of-business-intelligence-dashboards-1080x675.jpg",
       date: "June 15, 2024",
       category: "Business Intelligence",
       content: `In an age where every click, sale, and conversation creates data, small businesses are sitting on a goldmine of insight. But here's the problem: many don't have the tools—or time—to dig into it. While large enterprises invest millions in business intelligence (BI) teams and software, small and medium businesses (SMBs) often rely on instinct, guesswork, or scattered spreadsheets.
@@ -64,7 +64,7 @@ It's time to let it work for you.`
     {
       title: "What Makes a Great Dashboard? A Non-Technical Guide",
       excerpt: "It's not about data overload — it's about clarity, focus, and action.",
-      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=400&fit=crop",
+      image: "https://images.klipfolio.com/website/public/fef9b3dd-f994-40ec-ba1c-c514e551a587/Business%20Dashboard.png",
       date: "June 10, 2024",
       category: "Dashboard Design",
       content: `You've probably heard the phrase, "Let's build a dashboard." But what does that really mean?
@@ -189,7 +189,7 @@ You don't need to be a data expert. You just need the right tool.`
     {
       title: "From Excel to AI: How to Grow Your Data Practice Without Hiring a Team",
       excerpt: "You don't need a department — you need a smarter approach.",
-      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=400&fit=crop",
+      image: "https://loyverse.com/sites/all/themes/loyversecom/images/blog/7-google-data-studio.png",
       date: "June 2, 2024",
       category: "Data Strategy",
       content: `Most businesses start their data journey the same way: with Excel. And for a while, it works. You track sales, monitor campaigns, maybe even build some pivot tables.
@@ -258,7 +258,7 @@ PeekBI was built for this — to give founders, SMEs, and agencies the power of 
     {
       title: "Real-Time vs. Traditional Reporting — What's the Real Impact?",
       excerpt: "Because business decisions can't wait for the end of the month.",
-      image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=400&fit=crop",
+      image: "https://www.zohowebstatic.com/sites/zweb/images/analytics/unified.png",
       date: "May 28, 2024",
       category: "Real-Time Analytics",
       content: `Data tells a story — but timing matters. In fast-paced industries, waiting until the end of the month to see what went wrong (or right) is often too late.
@@ -326,7 +326,7 @@ It's the future of smart business.`
     {
       title: "5 KPIs Every Founder Should Track (And How PeekBI Finds Them Instantly)",
       excerpt: "Know what matters. Track it clearly. Act on it confidently.",
-      image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=400&fit=crop",
+      image: "https://dashboardbuilder.net/images/kpi_dashboard_main.png",
       date: "May 25, 2024",
       category: "KPIs",
       content: `As a founder, your day is full of decisions. What to scale, where to invest, what to fix. But how do you know you're making the right calls?
