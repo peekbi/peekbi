@@ -479,15 +479,22 @@ const HowItWorksDetails = () => {
                             <h3 className="text-2xl font-bold text-[#7400B8] mb-6">Download Sample Files</h3>
                             <p className="text-gray-600 mb-6">Start with our industry-specific sample files to understand the expected format and see PeekBI in action.</p>
                             <div className="space-y-4">
-                                {Object.entries(industryColumns).map(([key, industry]) => (
+                                {/* Map industry to real sample file */}
+                                {[ 
+                                    { key: 'retail', title: 'Retail Analytics', file: 'retail_sample_peekbi.csv' },
+                                    { key: 'finance', title: 'Financial Analytics', file: 'finance_peekbi.csv' },
+                                    { key: 'education', title: 'Education Analytics', file: 'education_peekbi.csv' },
+                                    { key: 'healthcare', title: 'Healthcare Analytics', file: 'hospital_peekbi.csv' },
+                                    { key: 'manufacturing', title: 'Manufacturing Analytics', file: 'manufacturing_sample_peekbi.xlsx' },
+                                ].map(({ key, title, file }) => (
                                     <a
                                         key={key}
-                                        href={`/files/${key}_sample_peekbi.xlsx`}
+                                        href={`/files/${file}`}
                                         download
                                         className="block w-full px-6 py-4 bg-gradient-to-r from-[#7400B8] to-[#9B4DCA] text-white rounded-xl font-semibold text-center hover:from-[#9B4DCA] hover:to-[#C77DFF] transition-all flex items-center justify-center gap-3 shadow-lg hover:shadow-xl"
                                     >
                                         <FiDownload className="w-5 h-5" />
-                                        {industry.title}
+                                        {title}
                                     </a>
                                 ))}
                             </div>

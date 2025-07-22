@@ -1,18 +1,10 @@
 import { motion } from 'framer-motion';
 import { FiArrowRight } from 'react-icons/fi';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Modal from '../Modal';
 import ReactMarkdown from 'react-markdown';
 
-gsap.registerPlugin(ScrollTrigger);
-
 const BlogSection = () => {
-  const containerRef = useRef(null);
-  const trackRef = useRef(null);
-  const headingRef = useRef(null);
-  const readmoreRef = useRef(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState(null);
 
@@ -385,139 +377,52 @@ Your business already holds the answers. Now it's time to see them, trust them, 
     setSelectedArticle(null);
   };
 
-  useEffect(() => {
-    const container = containerRef.current;
-    const track = trackRef.current;
-
-    if (!container || !track) return;
-
-    // Widths
-    const containerWidth = container.offsetWidth;
-    const trackWidth = track.scrollWidth;
-
-    // Last card element
-    const lastCard = track.lastElementChild;
-    if (!lastCard) return;
-
-    // Calculate last card's left offset relative to track and its center point
-    const lastCardLeft = lastCard.offsetLeft;
-    const lastCardWidth = lastCard.offsetWidth;
-    const lastCardCenter = lastCardLeft + lastCardWidth / 2;
-
-    // Calculate x translation to center last card within container center
-    let xTranslate = -(lastCardCenter - containerWidth / 2);
-
-    // Clamp xTranslate so no scroll beyond limits
-    const paddingRight = containerWidth / 2 - lastCardWidth / 2;
-    const maxScrollLeft = -(trackWidth + paddingRight - containerWidth);
-
-    if (xTranslate < maxScrollLeft) {
-      xTranslate = maxScrollLeft;
-    }
-    if (xTranslate > 0) {
-      xTranslate = 0;
-    }
-
-    const ctx = gsap.context(() => {
-      ScrollTrigger.killAll();
-
-      gsap.to(track, {
-        x: xTranslate,
-        ease: "none",
-        scrollTrigger: {
-          trigger: container,         // Pin the whole container (heading + cards)
-          start: "top 30%",          // Changed from 17% to 30% for earlier pinning
-          end: () => `+=${Math.abs(xTranslate)}`, // scroll duration based on distance
-          scrub: 1,
-          pin: true,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-          markers: false,
-        }
-      });
-    }, container);
-
-    return () => ctx.revert();
-  }, []);
-
   return (
-    <section className="py-24 bg-gradient-to-r from-[#f4e8fb] to-[#f8eefd] text-gray-900 min-h-screen flex flex-col justify-center">
+    <section className="py-16 md:py-24 bg-gradient-to-r from-[#f4e8fb] to-[#f8eefd] text-gray-900 min-h-[80vh] md:min-h-screen flex flex-col justify-center">
       <div className="container mx-auto px-4 max-w-[1200px]">
-        {/* Container includes heading + cards for pinning */}
-        <div
-          ref={containerRef}
-          className="relative overflow-hidden w-full"
-          style={{ height: '570px' }}
-        >
-          <motion.div
-            ref={headingRef}
-            className="main flex flex-row md:flex-row justify-between items-center mb-10"  // reduced bottom margin
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <div>
-              <h2 className="text-4xl font-bold mb-4 text-gray-900">Latest Insights</h2>
-              <p className="text-xl text-gray-600">
-                Expert advice and thought leadership on data analytics
-              </p>
-            </div>
-          </motion.div>
-
-          <div
-            ref={trackRef}
-            className="flex gap-6 px-5  h-[420px] sm:h-[450px]"
-            style={{ paddingRight: "calc(50vw - 175px)" }} // Adjusted padding for smaller cards
-          >
-            {blogPosts.map((post, index) => (
-              <motion.div
-                key={index}
-                className="w-[80vw] mb-8 sm:w-[350px] min-w-[80vw] sm:min-w-[350px] max-w-[350px] bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl shadow-lg overflow-hidden snap-start group"
-
-                initial={{ opacity: 0, y: 50, scale: 0.95 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true, amount: 0.5 }}
-                transition={{ duration: 0.6, delay: index * 0.15, ease: [0.25, 1, 0.5, 1] }}
-                whileHover={{ y: -10, scale: 1.03, transition: { duration: 0.3, ease: "circOut" } }}
-              >
-                <div className="relative">
-                  <img
-                    src={post.image}
-                    alt={post.title}
-                    className="w-full h-[160px] sm:h-[180px] object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=400&fit=crop";
-                    }}
-                  />
-                  <div className="absolute top-4 left-4 bg-white/20 text-gray-900 text-xs font-semibold py-1 px-3 rounded-full backdrop-blur-sm">
-                    {post.category}
-                  </div>
-                </div>
-                <div className="p-6 relative h-full">
-                  <div className="relative z-10">
-                    <div className="flex items-center text-sm text-gray-600 mb-3">
-                      <span>{post.date}</span>
-                    </div>
-                    <h3 className="text-xl font-semibold mb-3 text-gray-900 line-clamp-2">{post.title}</h3>
-                    <p className="text-gray-600 mb-4 line-clamp-2">{post.excerpt}</p>
-                    <button 
-                      onClick={() => handleOpenModal(post)}
-                      className="text-gray-900 font-medium flex items-center group cursor-pointer"
-                    >
-                      Read more
-                      <FiArrowRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-
-          </div>
-
+        <div className="mb-10">
+          <h2 className="text-3xl md:text-4xl font-bold mb-2 md:mb-4 text-gray-900">Latest Insights</h2>
+          <p className="text-lg md:text-xl text-gray-600">
+            Expert advice and thought leadership on data analytics
+          </p>
         </div>
-
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {blogPosts.map((post, index) => (
+            <div
+              key={index}
+              className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl shadow-lg overflow-hidden group flex flex-col"
+            >
+              <div className="relative">
+                <img
+                  src={post.image}
+                  alt={post.title}
+                  className="w-full object-cover h-[180px]"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=400&fit=crop";
+                  }}
+                />
+                <div className="absolute top-4 left-4 bg-white/20 text-gray-900 text-xs font-semibold py-1 px-3 rounded-full backdrop-blur-sm">
+                  {post.category}
+                </div>
+              </div>
+              <div className="p-6 flex-1 flex flex-col">
+                <div className="flex items-center text-sm text-gray-600 mb-3">
+                  <span>{post.date}</span>
+                </div>
+                <h3 className="text-xl font-semibold mb-3 text-gray-900 line-clamp-2">{post.title}</h3>
+                <p className="text-gray-600 mb-4 line-clamp-2">{post.excerpt}</p>
+                <button
+                  onClick={() => handleOpenModal(post)}
+                  className="text-gray-900 font-medium flex items-center group cursor-pointer mt-auto"
+                >
+                  Read more
+                  <FiArrowRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
         <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
           {selectedArticle && (
             <div className="space-y-6">
@@ -529,11 +434,9 @@ Your business already holds the answers. Now it's time to see them, trust them, 
                   <span className="text-sm text-gray-500">{selectedArticle.date}</span>
                 </div>
               </div>
-              
               <h2 className="text-2xl font-bold text-gray-900 mb-4">{selectedArticle.title}</h2>
-              
-              <img 
-                src={selectedArticle.image} 
+              <img
+                src={selectedArticle.image}
                 alt={selectedArticle.title}
                 className="w-full object-cover rounded-lg mb-6"
                 onError={(e) => {
@@ -541,17 +444,13 @@ Your business already holds the answers. Now it's time to see them, trust them, 
                   e.target.src = "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=400&fit=crop";
                 }}
               />
-              
               <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed">
                 <ReactMarkdown>{selectedArticle.content}</ReactMarkdown>
               </div>
             </div>
           )}
         </Modal>
-
       </div>
-
-
     </section>
   );
 };

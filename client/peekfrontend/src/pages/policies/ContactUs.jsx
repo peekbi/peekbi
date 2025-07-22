@@ -75,7 +75,7 @@ const ContactUs = () => {
                                     <FiPhone className="w-6 h-6 text-blue-600 mt-1" />
                                     <div>
                                         <h3 className="font-medium text-gray-900">Phone</h3>
-                                        <p className="text-gray-600">+91 9771068190</p>
+                                        <p className="text-gray-600">+91 9818133045</p>
                                         <p className="text-gray-600">Mon-Fri, 9am-6pm IST</p>
                                     </div>
                                 </div>
@@ -87,9 +87,9 @@ const ContactUs = () => {
                                         <p className="text-gray-600">
                                             Office no. 219<br />
                                             Biscomaun Bhawan<br />
-                                            IT Hub<br />
-                                            Patna , Bihar <br />
-                                            800001.
+                                            IT Hub, Patna<br />
+                                            Bihar, 800001. 
+                            
                                         </p>
                                     </div>
                                 </div>

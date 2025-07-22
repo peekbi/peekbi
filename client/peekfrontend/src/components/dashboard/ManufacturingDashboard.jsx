@@ -28,6 +28,7 @@ const ManufacturingDashboard = ({ file, analysis }) => {
     const { summary, insights } = analysis;
     const { kpis, highPerformers, lowPerformers, hypothesis, totals, trends, efficiency, quality, maintenance, supplyChain, energy, workforce } = insights;
     const [showSummary, setShowSummary] = useState(false);
+    const forecast = insights && insights.forecast ? insights.forecast : null;
 
     // Helper function to format numbers
     const formatNumber = (value) => {
@@ -38,7 +39,7 @@ const ManufacturingDashboard = ({ file, analysis }) => {
     const formatCurrency = (value) => {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
-            currency: 'USD',
+            currency: 'INR',
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(value);
@@ -139,10 +140,6 @@ const ManufacturingDashboard = ({ file, analysis }) => {
     const renderTotals = (totals) => {
         if (!totals || Object.keys(totals).length === 0) return null;
         return (
-            <div className="bg-white/80 rounded-3xl p-6 shadow-xl border border-white/20 mb-8">
-                <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                    <FiBarChart2 className="w-6 h-6 text-[#7400B8]" /> Totals
-                </h3>
                 <div className="flex flex-col gap-8 w-full">
                     {Object.entries(totals).map(([key, value], idx) => {
                         // If value is array of objects with two keys, render LineChart
@@ -159,7 +156,7 @@ const ManufacturingDashboard = ({ file, analysis }) => {
                             };
                             return (
                                 <div key={key} className="w-full flex flex-col items-center justify-center h-full flex-1 overflow-visible">
-                                    <h4 className="font-bold mb-2 text-center w-full break-words">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
+                                    {/* Removed h4 for totals */}
                                     {showSlider && (
                                         <div className="mb-2 flex items-center gap-2 w-full max-w-md mx-auto">
                                             <label htmlFor={`totals-slider-${key}`} className="text-xs text-gray-500">Window:</label>
@@ -203,7 +200,7 @@ const ManufacturingDashboard = ({ file, analysis }) => {
                             };
                             return (
                                 <div key={key} className="w-full">
-                                    <h4 className="font-bold mb-2">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
+                                    {/* Removed h4 for totals */}
                                     {showSlider && (
                                         <div className="mb-2 flex items-center gap-2 w-full max-w-md mx-auto">
                                             <label htmlFor={`totals-slider-table-${key}`} className="text-xs text-gray-500">Window:</label>
@@ -240,12 +237,11 @@ const ManufacturingDashboard = ({ file, analysis }) => {
                         }
                         return (
                             <div key={key} className="w-full">
-                                <h4 className="font-bold mb-2">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
+                                {/* Removed h4 for totals */}
                                 <p>{JSON.stringify(value)}</p>
                             </div>
                         );
                     })}
-                </div>
             </div>
         );
     };
@@ -408,16 +404,34 @@ const ManufacturingDashboard = ({ file, analysis }) => {
     // Helper: Render Section Cards (for efficiency, quality, etc.)
     const renderSectionCard = (title, data, icon) => {
         if (!data || Object.keys(data).length === 0) return null;
+        // Choose color based on section
+        let color = '#7400B8';
+        let subtitle = `${title} related metrics and KPIs`;
+        if (title === 'Quality') color = '#C084FC';
+        if (title === 'Energy') color = '#8B5CF6';
+        if (title === 'Supply Chain') color = '#F59E42';
         return (
-            <div className="bg-white/80 rounded-3xl p-6 shadow-xl border border-white/20 mb-8 w-full">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    {icon} {title}
-                    </h3>
-                <ul className="list-disc list-inside">
+            <div className="bg-white border border-gray-200 shadow-sm mb-8" style={{ borderRadius: '2px' }}>
+                <div className="h-1" style={{ backgroundColor: color }}></div>
+                <div className="p-4 border-b border-gray-200 flex items-center gap-3">
+                    <div className="p-2 rounded-sm text-white" style={{ backgroundColor: color }}>
+                        {icon}
+                    </div>
+                    <div>
+                        <div className="text-lg font-semibold text-gray-900">{title}</div>
+                        <div className="text-xs text-gray-500">{subtitle}</div>
+                    </div>
+                </div>
+                <div className="p-6">
+                    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                     {Object.entries(data).map(([k, v]) => (
-                        <li key={k}><span className="font-semibold">{k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</li>
+                            <div key={k} className="flex flex-col items-start">
+                                <span className="text-2xl font-bold text-[#7400B8]">{typeof v === 'number' || (!isNaN(Number(v)) && v !== null && v !== undefined) ? round4(v) : String(v)}</span>
+                                <span className="text-xs text-gray-600">{k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                            </div>
                     ))}
-                </ul>
+                    </div>
+                </div>
                     </div>
         );
     };
@@ -700,21 +714,309 @@ const ManufacturingDashboard = ({ file, analysis }) => {
         );
     };
 
+    // Replace the entire return statement with a new layout matching HealthcareDashboard.jsx, using the purple color palette for Manufacturing.
     return (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8 p-4 sm:p-6 lg:p-8">
-            {renderKPIs(kpis)}
-            {renderKpiCardsRow()}
+    <div className="min-h-screen w-full bg-gradient-to-br from-[#F9F4FF] to-white p-4 sm:p-6">
+      {/* Main Dashboard Content - Full Width */}
+      <div className="w-full max-w-none">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          {/* Power BI Style KPI Section */}
+          <div className="space-y-4">
+            {/* Top 4 KPI Cards */}
+            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
+              {/* Use the first 4 KPIs, styled as Power BI cards */}
+              {(() => {
+                const kpiEntries = Object.entries(kpis || {});
+                return kpiEntries.slice(0, 4).map(([key, value], index) => {
+                  const color = [
+                    '#7400B8', // purple
+                    '#8B5CF6', // indigo
+                    '#C084FC', // light purple
+                    '#F59E42', // orange
+                  ][index % 4];
+                  const icon = [
+                    <FiBarChart2 className="w-5 h-5" />, <FiActivity className="w-5 h-5" />, <FiCpu className="w-5 h-5" />, <FiPackage className="w-5 h-5" />
+                  ][index % 4];
+                  return (
+                    <motion.div
+                      key={key}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="bg-white border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-md"
+                      style={{ borderRadius: '2px' }}
+                    >
+                      <div className="h-1" style={{ backgroundColor: color }}></div>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-sm text-white" style={{ backgroundColor: color }}>{icon}</div>
+                            <div className="text-xs text-gray-600 font-medium">
+                              {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900 mb-1">
+                          {typeof value === 'number' || (!isNaN(Number(value)) && value !== null && value !== undefined) ? round4(value) : String(value)}
+                        </div>
+                        <div className="text-sm text-gray-700 font-medium">
+                          KPI
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                });
+              })()}
+            </div>
+          
+          </div>
+ {/* Quality Card (full width) */}
+ <div className="w-full">
+    {renderSectionCard('Quality', quality, <FiAlertTriangle className="w-6 h-6 text-[#C084FC]" />)}
+  </div>
+          {/* Trends Section */}
+          {trends && Array.isArray(trends) && trends.length > 0 && (
+            <div className="bg-white border border-gray-200" style={{ borderRadius: '2px' }}>
+              <div className="border-b border-gray-200 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <FiBarChart2 className="w-5 h-5 text-purple-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Production Trends</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Metric:</span>
+                    <select value={trendsMetric} onChange={e => setTrendsMetric(e.target.value)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500">
+                      {getAvailableMetrics(trends).map(m => <option key={m} value={m}>{m.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">Track production trends over time to identify patterns and optimize output.</p>
+              </div>
+              <div className="h-80 p-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trends.map(d => ({ ...d, [trendsMetric]: round4(d[trendsMetric]) }))} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#7400B8" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#7400B8" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3e8ff" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#a78bfa' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#a78bfa' }} />
+                    <Tooltip formatter={(v) => round4(v)} contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                    <Legend />
+                    <Area type="monotone" dataKey={trendsMetric} stroke="#7400B8" fill="url(#colorTrend)" strokeWidth={3} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* KPI Cards Row for efficiency, quality, etc. */}
+          <div className="flex flex-col gap-4 w-full mb-4">
+  <div className="flex flex-row gap-4 w-full flex-wrap md:flex-nowrap">
+    <div className="flex-1 min-w-[280px] max-w-full">
+      {/* Additional KPI Cards if any */}
+      {Object.keys(kpis || {}).length > 4 && (
+  <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
+    {Object.entries(kpis).slice(4).map(([key, value], idx) => {
+      const color = '#7400B8';
+      return (
+        <div
+          key={key}
+          className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200"
+          style={{ borderRadius: '2px' }}
+        >
+          <div className="h-1" style={{ backgroundColor: color }}></div>
+          <div className="p-4 border-b border-gray-200 flex items-center gap-3">
+            <div className="p-2 rounded-sm text-white" style={{ backgroundColor: color }}>
+              <FiBarChart2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-gray-900">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+              <div className="text-xs text-gray-500">Additional KPI</div>
+            </div>
+          </div>
+          <div className="p-6">
+            <span className="text-2xl font-bold text-[#7400B8]">{typeof value === 'number' || (!isNaN(Number(value)) && value !== null && value !== undefined) ? round4(value) : String(value)}</span>
+           <div className="text-xs text-gray-500">  Avg Production</div>
+          </div>
+      
+        </div>
+      );
+    })}
+  </div>
+)}
+    </div>
+    {/* Efficiency Card */}
+    <div className="flex-1 min-w-[280px] max-w-full">
+      {renderSectionCard('Efficiency', efficiency, <FiActivity className="w-6 h-6 text-[#7400B8]" />)}
+    </div>
+  </div>
+ 
+  {/* Energy and Supply Chain in a row */}
+  <div className="flex flex-row gap-4 w-full flex-wrap md:flex-nowrap">
+    <div className="flex-1 min-w-[280px] max-w-full">
+      {renderSectionCard('Energy', energy, <FiCpu className="w-6 h-6 text-[#8B5CF6]" />)}
+    </div>
+    <div className="flex-1 min-w-[280px] max-w-full">
+      {renderSectionCard('Supply Chain', supplyChain, <FiPackage className="w-6 h-6 text-[#F59E42]" />)}
+    </div>
+  </div>
+</div>
+
             {/* High Performers */}
-            {highPerformers && highPerformers.top_Product && renderPerformerSection('Top Product Lines', highPerformers.top_Product, 'Product Line', 'Units Produced', '#7400B8')}
+          {highPerformers && highPerformers.top_Product && (
+            <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))' }}>
+              {renderPerformerSection('Top Product Lines', highPerformers.top_Product, 'Product Line', 'Units Produced', '#7400B8')}
+            </div>
+          )}
             {/* Low Performers */}
-            {lowPerformers && lowPerformers.bottom_Product && renderPerformerSection('Low Product Lines', lowPerformers.bottom_Product, 'Product Line', 'Units Produced', '#C084FC')}
+          {lowPerformers && lowPerformers.bottom_Product && (
+            <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))' }}>
+              {renderPerformerSection('Low Product Lines', lowPerformers.bottom_Product, 'Product Line', 'Units Produced', '#C084FC')}
+            </div>
+          )}
+
+          {/* Totals Section */}
+          {totals && Object.keys(totals).length > 0 && (
+            <div className="bg-white border border-gray-200" style={{ borderRadius: '2px' }}>
+              <div className="border-b border-gray-200 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FiBarChart2 className="w-5 h-5 text-purple-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Totals</h3>
+                </div>
+                <p className="text-sm text-gray-600">Aggregated totals and time series for key metrics</p>
+              </div>
+              <div className="p-6">
             {renderTotals(totals)}
-            {renderTrends(trends)}
-            {renderMaintenanceTrends(maintenance)}
+              </div>
+            </div>
+          )}
+
+          {/* Maintenance Trends Section */}
+          {maintenance && Array.isArray(maintenance.downtime_trends) && maintenance.downtime_trends.length > 0 && (
+            <div className="bg-white border border-gray-200" style={{ borderRadius: '2px' }}>
+              <div className="border-b border-gray-200 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <FiSettings className="w-5 h-5 text-purple-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Maintenance Trends</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Metric:</span>
+                    <select value={maintMetric} onChange={e => setMaintMetric(e.target.value)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500">
+                      {getAvailableMetrics(maintenance.downtime_trends).map(m => <option key={m} value={m}>{m.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">Monitor downtime and maintenance trends to improve equipment reliability.</p>
+              </div>
+              <div className="h-80 p-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={maintenance.downtime_trends.map(d => ({ ...d, [maintMetric]: round4(d[maintMetric]) }))} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorMaint" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#7400B8" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#7400B8" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3e8ff" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#a78bfa' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#a78bfa' }} />
+                    <Tooltip formatter={(v) => round4(v)} contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                    <Legend />
+                    <Area type="monotone" dataKey={maintMetric} stroke="#7400B8" fill="url(#colorMaint)" strokeWidth={3} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Workforce Section */}
             {renderSectionCard('Workforce', workforce, <FiUsers className="w-6 h-6 text-[#7400B8]" />)}
+
+          {/* Data Summary & Hypotheses */}
+          <div className="bg-white border border-gray-200" style={{ borderRadius: '2px' }}>
+            <div className="border-b border-gray-200 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <FiCpu className="w-5 h-5 text-gray-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">AI-Powered Insights & Data Summary</h3>
+                </div>
+                <button
+                  onClick={() => setShowSummary(s => !s)}
+                  className="px-4 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-sm hover:bg-purple-100 transition-colors border border-purple-200"
+                >
+                  {showSummary ? 'Hide Data Summary' : 'Show Data Summary'}
+                </button>
+              </div>
+              <p className="text-sm text-gray-600">Automated analysis findings, recommendations, and detailed data summary from {originalName}</p>
+            </div>
+            <div className="p-6">
+              {/* AI Insights Section */}
+              <div className="mb-8">
+                <h4 className="text-md font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                  AI-Generated Insights
+                </h4>
+                {hypothesis && Array.isArray(hypothesis) && hypothesis.length > 0 ? (
+                  <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+                    {hypothesis.slice(0, 6).map((item, index) => (
+                      <div key={index} className="border border-gray-100 rounded-sm p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <div className="w-7 h-7 rounded-sm bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-sm font-bold text-purple-600">{index + 1}</span>
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm text-gray-700 leading-relaxed">{item}</span>
+                            <div className="flex items-center gap-2 mt-3">
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-sm">
+                                AI Generated
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                <span className="text-xs text-gray-500">High Confidence</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-gray-50 rounded-sm">
+                    <FiCpu className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                    <p className="text-lg text-gray-500 font-medium">No AI Insights Available</p>
+                    <p className="text-sm text-gray-400 mt-2">Insights will appear here when data analysis is complete</p>
+                  </div>
+                )}
+              </div>
+              {/* Data Summary Section */}
+              {showSummary && (
+                <div className="border-t border-gray-200 pt-6">
+                  <h4 className="text-md font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    Detailed Data Summary
+                  </h4>
+                  <div className="mb-4 p-4 bg-purple-50 rounded-sm border border-purple-200">
+                    <p className="text-sm text-purple-800">
+                      <strong>Analysis Overview:</strong> Analyzed {summaryFields.length} metrics from {originalName}
+                    </p>
+                  </div>
             {renderSummary(summary)}
-            {renderHypotheses(hypothesis)}
+                </div>
+              )}
+            </div>
+          </div>
             </motion.div>
+      </div>
+    </div>
     );
 };
 

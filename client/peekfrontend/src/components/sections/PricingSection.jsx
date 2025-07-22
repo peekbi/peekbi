@@ -95,8 +95,6 @@ const PricingSection = () => {
     useEffect(() => {
         gsap.utils.toArray('.pricingCard').forEach(pricingCard => {
             gsap.to(pricingCard, {
-                scale: 0.7,
-                opacity: 0,
                 scrollTrigger: {
                     trigger: pricingCard,
                     start: "top 15",

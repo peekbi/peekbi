@@ -1,0 +1,101 @@
+score,marks,performance,student,name,subject,course,date,month,attendance,completion,status,resource,usage,teacher,budget,expenditure,alumni,placement,lab,library,enrollment,dropout
+92.15,92,Poor,1,Student 1,Computer Science,M.A,2024-10-04,October,75%,96%,Completed,Labs,Low,Mrs. Das,20555.53,17801.63,387,50%,Not Available,Available,459,35
+58.99,58,Good,2,Student 2,Mathematics,B.Tech,2025-03-31,March,65%,93%,Dropped,Quizzes,Medium,Dr. Reddy,28648.96,18222.84,52,53%,Not Available,Not Available,803,37
+95.86,95,Poor,3,Student 3,Mathematics,B.A,2025-04-28,April,65%,85%,Dropped,Labs,Low,Mrs. Das,42103.68,32163.46,194,53%,Not Available,Available,770,12
+68.9,68,Good,4,Student 4,Physics,M.Tech,2024-08-09,August,93%,87%,Dropped,Assignments,High,Ms. Gupta,32115.52,19373.29,245,90%,Not Available,Available,569,21
+95.65,95,Excellent,5,Student 5,Chemistry,B.A,2025-02-10,February,90%,84%,Completed,Assignments,Low,Mrs. Das,37912.77,24534.03,224,65%,Available,Not Available,564,23
+53.0,53,Good,6,Student 6,Economics,M.Sc,2024-08-03,August,68%,81%,Dropped,Videos,Medium,Prof. Singh,12114.49,10183.74,386,94%,Not Available,Not Available,249,11
+58.37,58,Poor,7,Student 7,Mathematics,MBA,2024-12-29,December,74%,82%,In Progress,Quizzes,High,Mrs. Das,38467.55,23641.57,213,54%,Available,Not Available,711,30
+51.33,51,Excellent,8,Student 8,Biology,B.Com,2024-06-08,June,74%,76%,Dropped,Quizzes,High,Prof. Singh,49355.99,40506.21,346,46%,Not Available,Available,906,14
+64.05,64,Average,9,Student 9,Physics,M.Sc,2024-10-05,October,72%,86%,Dropped,E-books,Medium,Mrs. Das,13314.12,12713.5,293,55%,Available,Available,636,1
+55.07,55,Good,10,Student 10,Computer Science,B.Sc,2025-05-17,May,97%,76%,In Progress,E-books,Medium,Mr. Sharma,37201.2,35096.87,259,44%,Available,Not Available,994,36
+89.26,89,Average,11,Student 11,Chemistry,M.A,2025-03-02,March,61%,96%,Dropped,E-books,Medium,Ms. Gupta,46026.81,44699.85,479,46%,Available,Available,298,22
+77.5,77,Poor,12,Student 12,Geography,B.Tech,2025-01-28,January,67%,90%,Completed,Labs,High,Prof. Singh,39902.15,29786.27,94,58%,Available,Not Available,283,10
+50.83,50,Average,13,Student 13,Geography,M.Sc,2024-10-18,October,97%,88%,In Progress,Quizzes,Low,Mrs. Das,23035.28,22190.15,97,50%,Available,Not Available,719,6
+64.28,64,Average,14,Student 14,Economics,M.Sc,2024-06-25,June,77%,89%,Dropped,Quizzes,Medium,Ms. Gupta,11754.17,10538.78,123,40%,Not Available,Not Available,767,12
+54.37,54,Average,15,Student 15,Geography,B.Sc,2024-09-10,September,92%,95%,In Progress,Assignments,Low,Dr. Reddy,45680.06,38203.35,403,72%,Available,Not Available,166,29
+65.71,65,Poor,16,Student 16,Physics,M.Sc,2024-06-04,June,63%,92%,In Progress,E-books,Low,Dr. Reddy,29062.05,23925.12,144,85%,Not Available,Not Available,522,47
+89.58,89,Excellent,17,Student 17,Chemistry,M.Sc,2024-09-01,September,89%,90%,Dropped,Quizzes,Medium,Dr. Reddy,19477.1,15094.05,294,87%,Available,Not Available,136,33
+55.97,55,Excellent,18,Student 18,English,B.A,2024-12-26,December,100%,96%,In Progress,Videos,Low,Dr. Reddy,14526.43,9142.38,203,64%,Not Available,Available,161,17
+99.33,99,Excellent,19,Student 19,English,M.Tech,2025-02-11,February,68%,96%,Completed,E-books,Medium,Mrs. Das,28903.56,17696.19,429,46%,Not Available,Available,804,3
+84.41,84,Excellent,20,Student 20,Chemistry,M.A,2025-03-07,March,79%,80%,In Progress,Videos,High,Ms. Gupta,40518.69,29228.64,496,48%,Available,Not Available,666,4
+71.69,71,Average,21,Student 21,Psychology,M.A,2024-07-13,July,89%,98%,In Progress,Quizzes,Medium,Mr. Sharma,41026.38,33266.67,143,44%,Not Available,Available,478,30
+87.39,87,Excellent,22,Student 22,Chemistry,B.A,2024-09-11,September,60%,89%,In Progress,Labs,High,Prof. Singh,37485.21,27500.62,368,88%,Available,Available,443,27
+74.91,74,Poor,23,Student 23,Mathematics,B.Tech,2024-06-04,June,100%,79%,Dropped,Labs,High,Dr. Reddy,18347.57,13236.58,322,43%,Not Available,Available,239,42
+74.15,74,Good,24,Student 24,Chemistry,B.Tech,2024-11-23,November,77%,73%,Completed,Quizzes,Medium,Mrs. Das,14893.05,11217.68,399,93%,Available,Not Available,701,32
+70.52,70,Good,25,Student 25,Geography,B.Com,2024-06-16,June,77%,89%,In Progress,Assignments,Low,Prof. Singh,40066.62,38786.66,497,62%,Available,Not Available,444,22
+67.79,67,Good,26,Student 26,History,M.Tech,2025-04-12,April,63%,86%,In Progress,Quizzes,Low,Dr. Reddy,49537.38,32304.23,453,45%,Available,Available,405,32
+60.64,60,Poor,27,Student 27,History,MBA,2025-05-30,May,98%,95%,Completed,Labs,Low,Ms. Gupta,35308.7,26831.59,152,40%,Not Available,Not Available,914,44
+55.43,55,Average,28,Student 28,History,B.Tech,2024-09-19,September,82%,97%,Completed,Labs,Medium,Mr. Sharma,35213.72,34727.36,415,40%,Not Available,Available,861,36
+64.86,64,Average,29,Student 29,Physics,M.Tech,2024-10-15,October,78%,99%,In Progress,Assignments,Medium,Mrs. Das,29670.56,19743.07,115,79%,Not Available,Not Available,112,42
+56.86,56,Poor,30,Student 30,Physics,MBA,2025-02-10,February,81%,92%,In Progress,E-books,Medium,Dr. Reddy,49343.62,36214.49,453,42%,Available,Available,370,16
+96.2,96,Poor,31,Student 31,Economics,B.Sc,2024-08-09,August,70%,79%,In Progress,Quizzes,Medium,Mrs. Das,33905.1,27563.57,403,83%,Available,Not Available,161,10
+53.3,53,Poor,32,Student 32,Economics,M.Tech,2025-04-27,April,83%,81%,In Progress,Assignments,Medium,Prof. Singh,41583.51,36512.72,261,51%,Available,Not Available,630,39
+66.69,66,Poor,33,Student 33,English,B.Sc,2025-03-19,March,70%,75%,Dropped,Videos,Low,Mr. Sharma,48852.73,44393.57,69,67%,Available,Not Available,682,18
+62.22,62,Good,34,Student 34,Economics,M.Sc,2025-03-23,March,95%,72%,In Progress,Quizzes,Medium,Ms. Gupta,44259.42,36414.23,212,75%,Available,Available,703,8
+85.79,85,Good,35,Student 35,Mathematics,M.Tech,2024-09-18,September,73%,89%,Dropped,Videos,Low,Ms. Gupta,44765.63,43361.71,380,66%,Not Available,Not Available,831,33
+65.98,65,Excellent,36,Student 36,Psychology,B.Tech,2024-10-20,October,83%,86%,Dropped,Videos,Medium,Mr. Sharma,27814.25,20168.65,402,75%,Not Available,Not Available,479,18
+55.64,55,Good,37,Student 37,Economics,B.Tech,2024-06-03,June,66%,79%,Completed,Quizzes,Low,Ms. Gupta,39789.64,39506.63,324,77%,Available,Not Available,949,42
+56.88,56,Average,38,Student 38,Computer Science,B.A,2025-04-03,April,84%,72%,In Progress,Quizzes,Low,Mr. Sharma,16085.3,12896.43,497,69%,Available,Available,467,46
+96.27,96,Excellent,39,Student 39,Computer Science,B.Tech,2024-06-06,June,97%,99%,Completed,Labs,High,Mr. Sharma,23492.65,16991.33,132,44%,Available,Available,901,7
+67.39,67,Average,40,Student 40,History,MBA,2024-06-07,June,69%,94%,Dropped,Quizzes,High,Mrs. Das,29517.03,25827.7,133,78%,Available,Not Available,758,8
+77.49,77,Poor,41,Student 41,Biology,B.Com,2025-03-18,March,66%,75%,In Progress,E-books,Low,Prof. Singh,26339.0,24305.97,409,95%,Not Available,Available,572,31
+93.43,93,Excellent,42,Student 42,Chemistry,M.Tech,2024-08-22,August,85%,94%,Completed,Labs,High,Mrs. Das,26348.15,18752.3,313,80%,Not Available,Available,633,27
+91.75,91,Poor,43,Student 43,History,M.A,2024-10-15,October,71%,76%,Completed,Assignments,Medium,Mr. Sharma,17680.0,14147.52,395,73%,Available,Available,505,22
+87.69,87,Good,44,Student 44,Physics,B.Sc,2024-07-04,July,64%,86%,Dropped,Labs,High,Mrs. Das,48787.32,35373.46,83,93%,Not Available,Not Available,267,47
+61.36,61,Excellent,45,Student 45,Mathematics,B.A,2024-06-15,June,91%,93%,In Progress,Assignments,Medium,Ms. Gupta,11959.98,11293.35,310,51%,Available,Not Available,812,46
+86.16,86,Poor,46,Student 46,Mathematics,B.Com,2024-11-04,November,89%,81%,Dropped,Labs,High,Dr. Reddy,29862.89,19859.52,329,92%,Not Available,Available,166,47
+86.17,86,Excellent,47,Student 47,History,MBA,2024-09-15,September,74%,88%,In Progress,Quizzes,High,Dr. Reddy,13072.31,9335.16,414,75%,Not Available,Not Available,706,40
+97.23,97,Poor,48,Student 48,Computer Science,M.Tech,2025-03-05,March,86%,78%,Completed,Quizzes,High,Dr. Reddy,20518.87,17336.36,199,56%,Not Available,Not Available,105,45
+55.56,55,Average,49,Student 49,English,B.Com,2025-03-02,March,93%,93%,Dropped,Assignments,Low,Mrs. Das,11908.22,10938.31,175,53%,Available,Not Available,110,33
+96.1,96,Poor,50,Student 50,Computer Science,MBA,2024-09-14,September,82%,91%,Completed,Quizzes,Medium,Dr. Reddy,35614.14,32813.54,162,52%,Available,Not Available,769,35
+73.29,73,Excellent,51,Student 51,Economics,M.Tech,2024-09-21,September,76%,85%,Completed,Assignments,Medium,Ms. Gupta,26549.97,16886.48,324,76%,Available,Not Available,535,16
+76.48,76,Excellent,52,Student 52,Chemistry,MBA,2024-08-02,August,100%,93%,In Progress,Quizzes,Low,Mrs. Das,24100.1,22473.67,395,85%,Not Available,Available,385,20
+68.62,68,Average,53,Student 53,Economics,MBA,2024-11-08,November,66%,96%,In Progress,E-books,Low,Dr. Reddy,47512.59,43496.49,314,82%,Not Available,Not Available,830,14
+99.94,99,Good,54,Student 54,Physics,M.Sc,2024-07-15,July,73%,83%,Dropped,Labs,Medium,Mrs. Das,42417.61,34931.72,270,92%,Available,Available,609,42
+75.16,75,Good,55,Student 55,Economics,MBA,2025-01-24,January,83%,94%,Dropped,Quizzes,Low,Prof. Singh,45906.57,43135.22,414,51%,Available,Not Available,100,3
+74.08,74,Excellent,56,Student 56,Mathematics,MBA,2024-07-15,July,83%,89%,Completed,E-books,Medium,Mrs. Das,32397.96,30968.2,98,81%,Not Available,Not Available,385,6
+98.31,98,Good,57,Student 57,Physics,M.Sc,2024-06-12,June,62%,85%,Dropped,Labs,Medium,Dr. Reddy,38953.1,30745.54,482,66%,Available,Available,617,50
+83.67,83,Poor,58,Student 58,Geography,M.Sc,2025-04-17,April,81%,78%,In Progress,Quizzes,Low,Prof. Singh,33779.35,25775.86,327,53%,Not Available,Available,680,37
+80.81,80,Poor,59,Student 59,History,M.Tech,2025-04-25,April,96%,80%,Completed,Videos,Low,Prof. Singh,29365.66,19188.94,219,57%,Not Available,Not Available,674,31
+89.51,89,Poor,60,Student 60,Chemistry,B.Tech,2024-08-21,August,94%,89%,Dropped,Videos,Low,Prof. Singh,42791.72,32048.62,212,41%,Available,Available,731,5
+73.5,73,Excellent,61,Student 61,Computer Science,B.Tech,2024-07-08,July,77%,99%,In Progress,E-books,High,Mrs. Das,39812.27,24317.74,224,54%,Available,Not Available,552,20
+84.34,84,Good,62,Student 62,Computer Science,M.A,2025-05-16,May,71%,96%,In Progress,Videos,Medium,Dr. Reddy,28845.83,18905.92,238,47%,Not Available,Available,882,0
+82.52,82,Good,63,Student 63,Geography,B.Sc,2025-05-13,May,75%,80%,Completed,E-books,Low,Ms. Gupta,25211.98,16955.6,356,78%,Available,Available,434,2
+77.86,77,Poor,64,Student 64,Mathematics,M.Sc,2024-10-22,October,94%,72%,Dropped,Assignments,Low,Mrs. Das,17293.37,14310.43,241,65%,Not Available,Not Available,778,21
+77.56,77,Poor,65,Student 65,Economics,B.Com,2024-10-13,October,63%,77%,Dropped,Labs,Medium,Prof. Singh,45649.21,28694.17,340,95%,Available,Not Available,318,12
+97.03,97,Good,66,Student 66,Economics,B.A,2025-04-03,April,61%,93%,Dropped,Assignments,Low,Mrs. Das,12659.5,9195.33,499,49%,Not Available,Not Available,115,49
+85.67,85,Poor,67,Student 67,Biology,B.Sc,2025-03-30,March,62%,75%,Completed,Labs,Low,Mr. Sharma,16543.33,16078.85,423,58%,Not Available,Available,611,10
+99.72,99,Good,68,Student 68,Computer Science,M.A,2024-09-14,September,90%,76%,Completed,Assignments,Low,Mrs. Das,35816.62,30890.51,490,84%,Available,Available,881,18
+58.72,58,Good,69,Student 69,Chemistry,B.Tech,2025-04-18,April,81%,94%,In Progress,E-books,Low,Prof. Singh,24253.97,19002.14,431,43%,Not Available,Available,634,15
+91.32,91,Good,70,Student 70,Economics,MBA,2024-10-23,October,62%,95%,Dropped,Labs,Low,Ms. Gupta,36529.14,29118.11,317,44%,Available,Not Available,940,27
+74.18,74,Average,71,Student 71,Chemistry,M.Sc,2025-01-20,January,70%,94%,Dropped,Assignments,Medium,Prof. Singh,43893.55,40760.08,435,63%,Available,Available,221,27
+85.35,85,Average,72,Student 72,Economics,M.Tech,2025-03-19,March,70%,72%,In Progress,Videos,Low,Mr. Sharma,46744.04,45234.86,189,68%,Not Available,Available,610,18
+88.78,88,Average,73,Student 73,English,B.A,2024-12-21,December,60%,81%,Completed,Videos,Medium,Prof. Singh,39341.99,34929.32,423,65%,Available,Not Available,237,14
+98.3,98,Poor,74,Student 74,Psychology,M.A,2025-04-05,April,97%,70%,Dropped,Assignments,High,Prof. Singh,33922.63,22204.11,106,92%,Not Available,Not Available,208,28
+94.83,94,Good,75,Student 75,Mathematics,B.Com,2024-09-28,September,94%,87%,In Progress,Quizzes,High,Mr. Sharma,18133.46,15609.87,488,50%,Available,Available,738,48
+51.39,51,Average,76,Student 76,Psychology,B.A,2025-03-12,March,90%,82%,Dropped,Videos,Medium,Mrs. Das,21751.27,14492.72,172,91%,Not Available,Not Available,752,50
+64.6,64,Average,77,Student 77,Chemistry,M.A,2025-04-28,April,80%,89%,In Progress,Videos,High,Ms. Gupta,44684.96,42652.59,489,47%,Not Available,Not Available,223,44
+51.15,51,Excellent,78,Student 78,Mathematics,M.Sc,2025-04-02,April,92%,95%,In Progress,Assignments,High,Dr. Reddy,38325.7,23358.84,224,95%,Available,Available,622,31
+75.49,75,Good,79,Student 79,Physics,B.Com,2025-01-02,January,92%,96%,In Progress,E-books,Low,Mr. Sharma,47687.43,37004.61,452,83%,Not Available,Not Available,771,9
+53.46,53,Poor,80,Student 80,Economics,B.Com,2024-06-28,June,74%,80%,Completed,Videos,Medium,Mrs. Das,17323.82,16666.3,424,52%,Available,Not Available,595,19
+92.3,92,Poor,81,Student 81,Chemistry,M.Sc,2024-06-02,June,81%,80%,In Progress,Quizzes,Medium,Ms. Gupta,34017.4,24446.58,482,92%,Available,Available,287,5
+60.79,60,Excellent,82,Student 82,Computer Science,B.Com,2024-07-12,July,79%,79%,Dropped,Labs,Low,Ms. Gupta,33670.02,29079.34,432,68%,Not Available,Available,459,35
+92.02,92,Poor,83,Student 83,Mathematics,B.A,2025-01-24,January,97%,85%,Completed,E-books,Low,Ms. Gupta,13207.64,8240.81,152,54%,Available,Not Available,843,31
+57.34,57,Excellent,84,Student 84,Psychology,MBA,2024-07-27,July,95%,78%,In Progress,Labs,High,Dr. Reddy,36117.94,24491.2,165,95%,Available,Available,125,17
+50.08,50,Poor,85,Student 85,History,M.A,2025-02-11,February,92%,78%,In Progress,E-books,Low,Ms. Gupta,26362.31,23870.0,481,63%,Not Available,Available,579,0
+64.58,64,Average,86,Student 86,History,MBA,2024-12-16,December,71%,80%,Completed,Assignments,Low,Dr. Reddy,15374.12,9709.35,115,74%,Available,Not Available,116,17
+65.16,65,Average,87,Student 87,Computer Science,M.Sc,2025-05-24,May,90%,79%,In Progress,E-books,Medium,Mrs. Das,14228.67,14129.93,389,44%,Available,Not Available,299,10
+84.15,84,Good,88,Student 88,Computer Science,M.Sc,2025-05-05,May,94%,73%,Completed,Quizzes,High,Dr. Reddy,15262.68,12010.08,244,45%,Available,Not Available,281,5
+66.38,66,Poor,89,Student 89,Economics,M.A,2024-11-15,November,95%,82%,Dropped,E-books,High,Dr. Reddy,22496.29,17156.58,82,45%,Available,Available,398,32
+74.45,74,Average,90,Student 90,English,MBA,2024-11-24,November,84%,88%,Dropped,E-books,Medium,Mrs. Das,28211.51,25984.54,176,92%,Not Available,Available,872,21
+58.54,58,Poor,91,Student 91,Computer Science,M.Sc,2025-02-25,February,73%,81%,Completed,E-books,Low,Prof. Singh,34316.09,28741.47,460,78%,Not Available,Not Available,342,5
+60.93,60,Average,92,Student 92,Computer Science,B.Sc,2025-03-05,March,62%,81%,In Progress,Videos,Low,Ms. Gupta,29549.75,27534.9,130,41%,Not Available,Not Available,333,7
+65.63,65,Excellent,93,Student 93,Computer Science,B.Sc,2025-05-30,May,82%,72%,Completed,Videos,Low,Dr. Reddy,25943.28,22989.9,126,95%,Not Available,Not Available,632,27
+69.61,69,Excellent,94,Student 94,Geography,M.Tech,2025-05-11,May,87%,76%,Completed,Assignments,High,Dr. Reddy,28924.62,18283.1,361,92%,Available,Available,591,20
+95.93,95,Good,95,Student 95,Psychology,M.Sc,2024-08-12,August,64%,72%,In Progress,Assignments,Low,Dr. Reddy,15572.27,13559.4,241,65%,Not Available,Available,520,46
+76.45,76,Excellent,96,Student 96,Chemistry,B.A,2024-09-24,September,91%,74%,In Progress,Labs,Low,Mrs. Das,32925.57,30259.82,153,52%,Available,Not Available,426,9
+76.65,76,Excellent,97,Student 97,Chemistry,M.Sc,2025-03-22,March,68%,100%,Completed,Labs,High,Ms. Gupta,25777.23,25008.58,422,65%,Not Available,Available,437,4
+64.61,64,Excellent,98,Student 98,English,M.Sc,2025-03-26,March,82%,100%,Dropped,Labs,Low,Dr. Reddy,44289.81,33833.77,332,52%,Available,Not Available,790,8
+53.55,53,Good,99,Student 99,Biology,M.A,2024-11-22,November,64%,78%,Completed,Quizzes,High,Ms. Gupta,17520.29,16069.66,348,52%,Not Available,Not Available,797,40
+84.55,84,Average,100,Student 100,Economics,B.Sc,2024-06-11,June,68%,77%,In Progress,Videos,High,Mr. Sharma,16888.95,11416.65,236,95%,Available,Not Available,111,8

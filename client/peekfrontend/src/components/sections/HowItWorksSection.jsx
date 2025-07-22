@@ -103,11 +103,11 @@ const HowItWorksSection = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         {[
-                            { name: 'Retail', color: 'from-[#7400B8] to-[#9B4DCA]' },
-                            { name: 'Finance', color: 'from-[#9B4DCA] to-[#C77DFF]' },
-                            { name: 'Education', color: 'from-[#C77DFF] to-[#7400B8]' },
-                            { name: 'Healthcare', color: 'from-[#7400B8] to-[#9B4DCA]' },
-                            { name: 'Manufacturing', color: 'from-[#9B4DCA] to-[#C77DFF]' }
+                            { name: 'Retail', color: 'from-[#7400B8] to-[#9B4DCA]', file: 'retail_sample_peekbi.csv' },
+                            { name: 'Finance', color: 'from-[#9B4DCA] to-[#C77DFF]', file: 'finance_peekbi.csv' },
+                            { name: 'Education', color: 'from-[#C77DFF] to-[#7400B8]', file: 'education_peekbi.csv' },
+                            { name: 'Healthcare', color: 'from-[#7400B8] to-[#9B4DCA]', file: 'hospital_peekbi.csv' },
+                            { name: 'Manufacturing', color: 'from-[#9B4DCA] to-[#C77DFF]', file: 'manufacturing_sample_peekbi.xlsx' }
                         ].map((industry, index) => (
                             <motion.button
                                 key={industry.name}
@@ -119,22 +119,12 @@ const HowItWorksSection = () => {
                                 viewport={{ once: true }}
                                 transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
                                 onClick={() => {
-                                    // Create a sample CSV content for download
-                                    const sampleData = `Date,Sales,Revenue,Category
-2024-01-01,150,15000,${industry.name}
-2024-01-02,200,20000,${industry.name}
-2024-01-03,175,17500,${industry.name}
-2024-01-04,225,22500,${industry.name}
-2024-01-05,180,18000,${industry.name}`;
-                                    
-                                    const blob = new Blob([sampleData], { type: 'text/csv' });
-                                    const url = window.URL.createObjectURL(blob);
+                                    // Download the real sample file from public/files
                                     const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `${industry.name.toLowerCase()}-sample-data.csv`;
+                                    a.href = `/files/${industry.file}`;
+                                    a.download = industry.file;
                                     document.body.appendChild(a);
                                     a.click();
-                                    window.URL.revokeObjectURL(url);
                                     document.body.removeChild(a);
                                 }}
                             >
