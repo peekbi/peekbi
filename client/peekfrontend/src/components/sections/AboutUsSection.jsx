@@ -52,7 +52,7 @@ const AboutUsSection = forwardRef((props, aboutRef) => {
                     transition={{ duration: 0.3 }}
                 >
                     <h2 className="text-4xl font-bold mb-4 text-gray-800">About PeekBI</h2>
-                    <p className="text-xl text-gray-600 max-w-3xl mx-auto">Transforming data into actionable insights for businesses of all sizes</p>
+                    <p className="text-xl text-gray-600 max-w-3xl mx-auto">Turning data into clear insights - fast, simple and code-free.</p>
                 </motion.div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
