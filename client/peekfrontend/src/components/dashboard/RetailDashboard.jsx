@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiTrendingUp, FiDollarSign, FiUsers, FiBarChart2, FiShoppingCart, FiCpu, FiMessageSquare } from 'react-icons/fi';
+import { FiTrendingUp, FiDollarSign, FiUsers, FiBarChart2, FiShoppingCart, FiCpu, FiMessageSquare, FiDownload } from 'react-icons/fi';
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, ComposedChart, Cell, Area, AreaChart, PieChart, Pie
 } from 'recharts';
 import AIAnalyst from './AIAnalyst';
+import * as XLSX from 'xlsx';
 
 const RetailDashboard = ({ file, analysis }) => {
     // Helper function to round numbers to 3 decimal places
@@ -184,9 +185,99 @@ const RetailDashboard = ({ file, analysis }) => {
     // Totals: sales_by_category
     let salesByCategory = analysis.insights.totals?.sales_by_category || [];
 
+    // Export to Excel function (multi-sheet)
+    const exportToExcel = () => {
+        if (!analysis) return;
+        const wb = XLSX.utils.book_new();
+        // KPIs
+        if (analysis.insights?.kpis) {
+            const kpiSheet = XLSX.utils.aoa_to_sheet([
+                ['KPI', 'Value'],
+                ...Object.entries(analysis.insights.kpis)
+            ]);
+            XLSX.utils.book_append_sheet(wb, kpiSheet, 'KPIs');
+        }
+        // Summary
+        if (analysis.summary) {
+            const summaryRows = Object.entries(analysis.summary).map(([k, v]) => {
+                if (typeof v === 'object' && v !== null) {
+                    return [k, JSON.stringify(v)];
+                }
+                return [k, v];
+            });
+            const summarySheet = XLSX.utils.aoa_to_sheet([
+                ['Field', 'Value'],
+                ...summaryRows
+            ]);
+            XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+        }
+        // High Performers
+        if (analysis.insights?.highPerformers?.top_products?.length) {
+            const arr = analysis.insights.highPerformers.top_products;
+            const highSheet = XLSX.utils.json_to_sheet(arr);
+            XLSX.utils.book_append_sheet(wb, highSheet, 'High Performers');
+        }
+        // Low Performers
+        if (analysis.insights?.lowPerformers?.low_products?.length) {
+            const arr = analysis.insights.lowPerformers.low_products;
+            const lowSheet = XLSX.utils.json_to_sheet(arr);
+            XLSX.utils.book_append_sheet(wb, lowSheet, 'Low Performers');
+        }
+        // Totals
+        if (analysis.insights?.totals) {
+            Object.entries(analysis.insights.totals).forEach(([key, value]) => {
+                if (Array.isArray(value) && value.length && typeof value[0] === 'object') {
+                    const sheet = XLSX.utils.json_to_sheet(value);
+                    XLSX.utils.book_append_sheet(wb, sheet, `Totals - ${key}`);
+                } else if (Array.isArray(value) && value.length >= 2 && Array.isArray(value[0]) && Array.isArray(value[1])) {
+                    // Array of arrays (labels, values)
+                    const rows = value[0].map((label, i) => ({ [key + ' Name']: label, [key + ' Value']: value[1][i] }));
+                    const sheet = XLSX.utils.json_to_sheet(rows);
+                    XLSX.utils.book_append_sheet(wb, sheet, `Totals - ${key}`);
+                } else if (typeof value === 'object' && value !== null) {
+                    const rows = Object.entries(value).map(([k, v]) => ({ [k]: v }));
+                    const sheet = XLSX.utils.json_to_sheet(rows);
+                    XLSX.utils.book_append_sheet(wb, sheet, `Totals - ${key}`);
+                }
+            });
+        }
+        // Trends
+        if (analysis.insights?.trends?.daily?.length) {
+            const trendSheet = XLSX.utils.json_to_sheet(analysis.insights.trends.daily);
+            XLSX.utils.book_append_sheet(wb, trendSheet, 'Trends - Daily');
+        }
+        if (analysis.insights?.trends?.sales_over_time?.Date && Array.isArray(analysis.insights.trends.sales_over_time.Date)) {
+            const dates = analysis.insights.trends.sales_over_time.Date;
+            const sales = analysis.insights.trends.sales_over_time.Sales || [];
+            const rows = dates.map((date, i) => ({ Date: date, Sales: sales[i] }));
+            const trendSheet = XLSX.utils.json_to_sheet(rows);
+            XLSX.utils.book_append_sheet(wb, trendSheet, 'Trends - Sales Over Time');
+        }
+        // Hypotheses
+        if (analysis.insights?.hypothesis?.length) {
+            const hypoSheet = XLSX.utils.aoa_to_sheet([
+                ['Hypothesis'],
+                ...analysis.insights.hypothesis.map(h => [h])
+            ]);
+            XLSX.utils.book_append_sheet(wb, hypoSheet, 'Hypotheses');
+        }
+        XLSX.writeFile(wb, `${file?.originalName?.replace(/\.[^/.]+$/, '') || 'retail_analysis'}.xlsx`);
+    };
+
     return (
         <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6">
             <div className="w-full max-w-none">
+                {/* Common Header with Export Button */}
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Retail Dashboard</h2>
+                    <button
+                        onClick={exportToExcel}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
+                    >
+                        <FiDownload className="w-5 h-5" />
+                        Export to Excel
+                    </button>
+                </div>
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -345,24 +436,7 @@ const RetailDashboard = ({ file, analysis }) => {
                     {/* --- Top Row: Special KPIs + Totals (now below KPIs) --- */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 mt-8">
                         {/* Left: Frequent Customers Card (if present) */}
-                        {/* {analysis.insights.customer?.frequent_customers && Array.isArray(analysis.insights.customer.frequent_customers) && analysis.insights.customer.frequent_customers.length > 0 && (
-                            <div className="bg-white border border-gray-200 shadow-sm p-6 flex flex-col justify-between min-h-[240px]" style={{ borderRadius: '2px' }}>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                    <FiUsers className="w-5 h-5 text-[#3B82F6]" /> Frequent Customers
-                                </h3>
-                                <ul className="flex-1 flex flex-col gap-2">
-                                    {analysis.insights.customer.frequent_customers.map((cust, i) => (
-                                        <li key={i} className="flex justify-between items-center bg-blue-50 rounded px-4 py-2">
-                                            <span className="text-gray-800">{cust.customer || cust.name || cust.Customer || Object.values(cust)[0]}</span>
-                                            <span className="font-bold text-blue-700">{cust.purchases || cust.Purchases || cust.count || Object.values(cust)[1]}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )} */}
-
-                           {/* Customer - Bar Chart for Frequent Customers */}
-                    {analysis.insights.customer?.frequent_customers && Array.isArray(analysis.insights.customer.frequent_customers) && analysis.insights.customer.frequent_customers.length > 0 && analysis.insights.customer.frequent_customers.some(cust => Object.values(cust).some(v => v !== undefined && v !== null && v !== 0 && v !== '')) && (
+                        {analysis.insights.customer?.frequent_customers && Array.isArray(analysis.insights.customer.frequent_customers) && analysis.insights.customer.frequent_customers.length > 0 && analysis.insights.customer.frequent_customers.some(cust => Object.values(cust).some(v => v !== undefined && v !== null && v !== 0 && v !== '')) && (
                         <div className="bg-white border border-gray-200 shadow-sm p-6" style={{ borderRadius: '2px' }}>
                         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                 <FiUsers className="w-5 h-5 text-[#3B82F6]" /> Frequent Customers

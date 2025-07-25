@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FiBarChart2, FiCpu, FiActivity, FiFile, FiDownload, FiCalendar, FiDatabase, FiMessageSquare } from 'react-icons/fi';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 
 // Import components
 import Sidebar from '../../components/dashboard/Sidebar';
@@ -303,6 +304,90 @@ const UserDashboard = () => {
         setAnalysis(null);
         // Navigate to the base dashboard URL without any query params
         navigate('/user/dashboard');
+    };
+
+    // --- Simpler Export to Excel (Summary + Insights) ---
+    const handleExportToExcel = () => {
+        if (!selectedFile || !analysis) return;
+        const file = selectedFile;
+        const analysisData = analysis;
+        const wb = XLSX.utils.book_new();
+
+        // --- Summary Sheet ---
+        const summary = analysisData.summary || analysisData.Summary || {};
+        let summaryRows = [];
+        const flattenSummary = (prefix, value) => {
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                Object.entries(value).forEach(([k, v]) => {
+                    flattenSummary(prefix ? `${prefix} - ${k}` : k, v);
+                });
+            } else {
+                summaryRows.push([prefix, value]);
+            }
+        };
+        Object.entries(summary).forEach(([k, v]) => flattenSummary(k, v));
+        if (summaryRows.length) {
+            const summarySheet = XLSX.utils.aoa_to_sheet([
+                ['Field', 'Value'],
+                ...summaryRows
+            ]);
+            XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+        }
+
+        // --- Insights Sheet ---
+        const insights = analysisData.insights || analysisData.Insights || {};
+        let insightsRows = [];
+        const addInsightSection = (sectionName, value) => {
+            if (Array.isArray(value)) {
+                if (value.length === 0) return;
+                if (typeof value[0] === 'object' && value[0] !== null) {
+                    // Array of objects: add each row with section name
+                    value.forEach(row => {
+                        insightsRows.push({ Section: sectionName, ...row });
+                    });
+                } else {
+                    // Array of primitives: add as value rows
+                    value.forEach(v => {
+                        insightsRows.push({ Section: sectionName, Value: v });
+                    });
+                }
+            } else if (typeof value === 'object' && value !== null) {
+                // Object: flatten as key-value pairs
+                Object.entries(value).forEach(([k, v]) => {
+                    if (Array.isArray(v)) {
+                        // Nested array: treat as sub-section
+                        addInsightSection(`${sectionName} - ${k}`, v);
+                    } else if (typeof v === 'object' && v !== null) {
+                        // Nested object: flatten
+                        insightsRows.push({ Section: `${sectionName} - ${k}`, Value: JSON.stringify(v) });
+                    } else {
+                        insightsRows.push({ Section: `${sectionName} - ${k}`, Value: v });
+                    }
+                });
+            } else {
+                // Primitive
+                insightsRows.push({ Section: sectionName, Value: value });
+            }
+        };
+        Object.entries(insights).forEach(([section, value]) => {
+            addInsightSection(section, value);
+        });
+        if (insightsRows.length) {
+            // Collect all unique columns
+            const allCols = Array.from(new Set(insightsRows.flatMap(row => Object.keys(row))));
+            const aoa = [allCols, ...insightsRows.map(row => allCols.map(col => row[col] !== undefined ? row[col] : ''))];
+            const insightsSheet = XLSX.utils.aoa_to_sheet(aoa);
+            XLSX.utils.book_append_sheet(wb, insightsSheet, 'Insights');
+        }
+
+        // Fallback: if no sheets, add the whole object as JSON
+        if (wb.SheetNames.length === 0) {
+            const aoa = [["Data"], [JSON.stringify(analysisData)]];
+            const sheet = XLSX.utils.aoa_to_sheet(aoa);
+            XLSX.utils.book_append_sheet(wb, sheet, 'Data');
+        }
+
+        XLSX.writeFile(wb, `${file?.originalName?.replace(/\.[^/.]+$/, '') || 'analysis'}.xlsx`);
     };
 
     // Recent Files Component
@@ -690,6 +775,19 @@ const UserDashboard = () => {
 
     const { title, description, icon, onBack, aiButton } = getHeaderInfo();
 
+    // --- Export Button for Header ---
+    const exportButton = (showAnalysis && analysis && selectedFile) ? (
+        <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleExportToExcel}
+            className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-xl transition-all duration-200 text-sm sm:text-base border border-white/30"
+        >
+            <FiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="font-medium">Export to Excel</span>
+        </motion.button>
+    ) : null;
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#7400B8]/5 via-[#9B4DCA]/5 to-[#C77DFF]/5">
             <div className="flex h-screen overflow-hidden">
@@ -707,6 +805,7 @@ const UserDashboard = () => {
                                     sidebarOpen={sidebarOpen}
                                     onBack={onBack}
                                     aiButton={aiButton}
+                                    exportButton={exportButton}
                                 />
 
                                 {/* Content */}
@@ -728,6 +827,7 @@ const UserDashboard = () => {
                                     sidebarOpen={sidebarOpen}
                                     onBack={onBack}
                                     aiButton={aiButton}
+                                    exportButton={exportButton}
                                 />
 
                                 {/* Content */}

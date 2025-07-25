@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiTrendingUp, FiTrendingDown, FiDollarSign, FiUsers, FiBarChart2, FiActivity, FiCpu, FiMessageSquare, FiPieChart, FiTarget, FiArrowUp, FiArrowDown, FiArrowRight, FiAlertCircle, FiCheckCircle, FiInfo, FiCalendar } from 'react-icons/fi';
+import { FiTrendingUp, FiTrendingDown, FiDollarSign, FiUsers, FiBarChart2, FiActivity, FiCpu, FiMessageSquare, FiPieChart, FiTarget, FiArrowUp, FiArrowDown, FiArrowRight, FiAlertCircle, FiCheckCircle, FiInfo, FiCalendar, FiDownload } from 'react-icons/fi';
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, ComposedChart, Cell, Area, AreaChart, PieChart, Pie
 } from 'recharts';
 import AIAnalyst from './AIAnalyst';
+import * as XLSX from 'xlsx';
 
 const FinanceDashboard = ({ file, analysis }) => {
     const [selectedPeriod, setSelectedPeriod] = useState('all');
@@ -193,11 +194,11 @@ const FinanceDashboard = ({ file, analysis }) => {
                                         <div className="flex items-center gap-2">
                                             <div className="p-2 rounded-sm text-white" style={{ backgroundColor: '#3B82F6' }}>
                                                 <FiBarChart2 className="w-5 h-5" />
-                                            </div>
+                                </div>
                                             <div className="text-xs text-gray-600 font-medium">
-                                                {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                                            </div>
-                                        </div>
+                                        {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                </div>
+                            </div>
                                         <div className="text-xs text-blue-600 font-semibold">
                                             +0%
                                         </div>
@@ -260,9 +261,9 @@ const FinanceDashboard = ({ file, analysis }) => {
                             const isNumeric = value.every(v => typeof v[valueKey] === 'number');
                             if (isNumeric && value.length <= 8) {
                                 // Pie chart for up to 8 segments
-                                return (
-                                    <div key={key} className="w-full flex flex-col items-center justify-center h-full flex-1 overflow-visible">
-                                        <h4 className="font-bold mb-2 text-center w-full break-words">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
+                            return (
+                                <div key={key} className="w-full flex flex-col items-center justify-center h-full flex-1 overflow-visible">
+                                    <h4 className="font-bold mb-2 text-center w-full break-words">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
                                         <div className="w-full flex items-center justify-center h-full overflow-visible">
                                             <ResponsiveContainer width="100%" height={300}>
                                                 <PieChart>
@@ -292,25 +293,25 @@ const FinanceDashboard = ({ file, analysis }) => {
                                 return (
                                     <div key={key} className="w-full flex flex-col items-center justify-center h-full flex-1 overflow-visible">
                                         <h4 className="font-bold mb-2 text-center w-full break-words">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
-                                        <div className="w-full flex items-center justify-center h-full overflow-visible">
-                                            <ResponsiveContainer width="100%" height={300}>
+                                    <div className="w-full flex items-center justify-center h-full overflow-visible">
+                                        <ResponsiveContainer width="100%" height={300}>
                                                 <BarChart data={value} layout="vertical" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                                     <XAxis type="number" />
                                                     <YAxis dataKey={labelKey} type="category" width={120} />
-                                                    <Tooltip />
-                                                    <Legend />
+                                                <Tooltip />
+                                                <Legend />
                                                     <Bar dataKey={valueKey} radius={[0, 8, 8, 0]} barSize={28}>
                                                         {value.map((_, i) => (
                                                             <Cell key={`cell-bar-${i}`} fill={chartColors[i % chartColors.length]} />
                                                         ))}
                                                     </Bar>
                                                 </BarChart>
-                                            </ResponsiveContainer>
-                                        </div>
+                                        </ResponsiveContainer>
                                     </div>
-                                );
-                            }
+                                </div>
+                            );
+                        }
                         }
                         // Fallback: line chart for object of arrays
                         if (typeof value === 'object' && value !== null && Array.isArray(Object.values(value)[0])) {
@@ -775,13 +776,13 @@ const FinanceDashboard = ({ file, analysis }) => {
                             const isRatio = value.some(v => typeof v[valueKey] === 'string' && !isNaN(Number(v[valueKey])) && Number(v[valueKey]) < 1);
                             // If percent, format y-axis and tooltip as percent
                             if (isPercent || isRatio) {
-                                return (
-                                    <div key={key} className="w-full flex flex-col items-center justify-center h-full flex-1 overflow-visible">
-                                        <h4 className="font-bold mb-2 text-center w-full break-words">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
-                                        <div className="w-full flex items-center justify-center h-full overflow-visible">
-                                            <ResponsiveContainer width="100%" height={300}>
+                            return (
+                                <div key={key} className="w-full flex flex-col items-center justify-center h-full flex-1 overflow-visible">
+                                    <h4 className="font-bold mb-2 text-center w-full break-words">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
+                                    <div className="w-full flex items-center justify-center h-full overflow-visible">
+                                        <ResponsiveContainer width="100%" height={300}>
                                                 <LineChart data={value.map(d => ({ ...d, [valueKey]: parseFloat(d[valueKey]) }))} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                                     <XAxis dataKey={labelKey} tick={{ fontSize: 12 }} />
                                                     <YAxis tickFormatter={v => `${(v * 100).toFixed(0)}%`} />
                                                     <Tooltip formatter={v => `${(v * 100).toFixed(2)}%`} />
@@ -858,6 +859,89 @@ const FinanceDashboard = ({ file, analysis }) => {
                 </div>
             </div>
         );
+    };
+
+    // Export to Excel function (multi-sheet)
+    const exportToExcel = () => {
+        if (!analysis) return;
+        const wb = XLSX.utils.book_new();
+        // KPIs
+        if (insights?.kpis) {
+            const kpiSheet = XLSX.utils.aoa_to_sheet([
+                ['KPI', 'Value'],
+                ...Object.entries(insights.kpis)
+            ]);
+            XLSX.utils.book_append_sheet(wb, kpiSheet, 'KPIs');
+        }
+        // Summary
+        if (summary) {
+            const summaryRows = Object.entries(summary).map(([k, v]) => {
+                if (typeof v === 'object' && v !== null) {
+                    return [k, JSON.stringify(v)];
+                }
+                return [k, v];
+            });
+            const summarySheet = XLSX.utils.aoa_to_sheet([
+                ['Field', 'Value'],
+                ...summaryRows
+            ]);
+            XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+        }
+        // High Performers
+        if (insights?.highPerformers?.top_Month?.length) {
+            const arr = insights.highPerformers.top_Month;
+            const highSheet = XLSX.utils.json_to_sheet(arr);
+            XLSX.utils.book_append_sheet(wb, highSheet, 'High Performers');
+        }
+        // Low Performers
+        if (insights?.lowPerformers?.bottom_Month?.length) {
+            const arr = insights.lowPerformers.bottom_Month;
+            const lowSheet = XLSX.utils.json_to_sheet(arr);
+            XLSX.utils.book_append_sheet(wb, lowSheet, 'Low Performers');
+        }
+        // Totals
+        if (insights?.totals) {
+            Object.entries(insights.totals).forEach(([key, value]) => {
+                if (Array.isArray(value) && value.length && typeof value[0] === 'object') {
+                    const sheet = XLSX.utils.json_to_sheet(value);
+                    XLSX.utils.book_append_sheet(wb, sheet, `Totals - ${key}`);
+                } else if (Array.isArray(value) && value.length >= 2 && Array.isArray(value[0]) && Array.isArray(value[1])) {
+                    // Array of arrays (labels, values)
+                    const rows = value[0].map((label, i) => ({ [key + ' Name']: label, [key + ' Value']: value[1][i] }));
+                    const sheet = XLSX.utils.json_to_sheet(rows);
+                    XLSX.utils.book_append_sheet(wb, sheet, `Totals - ${key}`);
+                } else if (typeof value === 'object' && value !== null) {
+                    const rows = Object.entries(value).map(([k, v]) => ({ [k]: v }));
+                    const sheet = XLSX.utils.json_to_sheet(rows);
+                    XLSX.utils.book_append_sheet(wb, sheet, `Totals - ${key}`);
+                }
+            });
+        }
+        // Trends
+        if (insights?.trends && Array.isArray(insights.trends)) {
+            const trendSheet = XLSX.utils.json_to_sheet(insights.trends);
+            XLSX.utils.book_append_sheet(wb, trendSheet, 'Trends');
+        } else if (insights?.trends && typeof insights.trends === 'object') {
+            Object.entries(insights.trends).forEach(([key, value]) => {
+                if (Array.isArray(value) && value.length && typeof value[0] === 'object') {
+                    const sheet = XLSX.utils.json_to_sheet(value);
+                    XLSX.utils.book_append_sheet(wb, sheet, `Trends - ${key}`);
+                } else if (Array.isArray(value) && value.length >= 2 && Array.isArray(value[0]) && Array.isArray(value[1])) {
+                    const rows = value[0].map((label, i) => ({ [key + ' Name']: label, [key + ' Value']: value[1][i] }));
+                    const sheet = XLSX.utils.json_to_sheet(rows);
+                    XLSX.utils.book_append_sheet(wb, sheet, `Trends - ${key}`);
+                }
+            });
+        }
+        // Hypotheses
+        if (insights?.hypothesis?.length) {
+            const hypoSheet = XLSX.utils.aoa_to_sheet([
+                ['Hypothesis'],
+                ...insights.hypothesis.map(h => [h])
+            ]);
+            XLSX.utils.book_append_sheet(wb, hypoSheet, 'Hypotheses');
+        }
+        XLSX.writeFile(wb, `${file?.originalName?.replace(/\.[^/.]+$/, '') || 'finance_analysis'}.xlsx`);
     };
 
     // --- Render ---

@@ -9,6 +9,7 @@ const Header = ({
     icon: Icon, 
     actionButton = null,
     aiButton = null,
+    exportButton = null,
     className = "",
     sidebarOpen = false,
     setSidebarOpen = null,
@@ -65,6 +66,12 @@ const Header = ({
                 </div>
                 {/* Action buttons container */}
                 <div className="flex items-center space-x-2 sm:space-x-3 mt-2 sm:mt-0">
+                    {/* Export Button (before AI Button) */}
+                    {exportButton && (
+                        React.isValidElement(exportButton)
+                        ? <div>{exportButton}</div>
+                        : exportButton
+                    )}
                     {/* AI Button */}
                     {aiButton && (
                         React.isValidElement(aiButton) 
