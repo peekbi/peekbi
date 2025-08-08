@@ -28,6 +28,7 @@ const allowedOrigins = [
     'http://localhost:5174',
     'http://localhost:5173',
     'https://servs.ufdevs.me',
+    'https://peekbiforntend.vercel.app',
     'https://ufdevs.me',
     'https://www.peekbi.com',
     process.env.FRONTEND_URL // Add your Render frontend URL here
