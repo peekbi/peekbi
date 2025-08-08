@@ -1,45 +1,162 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { FiTrendingUp, FiDollarSign, FiUsers, FiBarChart2, FiShoppingCart, FiCpu, FiMessageSquare, FiDownload } from 'react-icons/fi';
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, ComposedChart, Cell, Area, AreaChart, PieChart, Pie
 } from 'recharts';
-import AIAnalyst from './AIAnalyst';
 import * as XLSX from 'xlsx';
 
 const RetailDashboard = ({ file, analysis }) => {
-    // Helper function to round numbers to 3 decimal places
-    const round4 = (v) => {
-        if (typeof v === 'number') return Number(v.toFixed(3));
-        if (typeof v === 'string' && !isNaN(Number(v))) return Number(Number(v).toFixed(3));
-        return v;
+    // Single comprehensive API response log
+    console.log('=== RETAIL DASHBOARD API RESPONSE ===', {
+        file,
+        analysis,
+        timestamp: new Date().toISOString()
+    });
+
+    // Error boundary state
+    const [hasError, setHasError] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+
+    // Wrap the entire component in error handling
+    React.useEffect(() => {
+        const handleError = (error) => {
+            console.error('RetailDashboard Error:', error);
+            setHasError(true);
+            setErrorMessage(error.message || 'An unexpected error occurred');
+        };
+
+        window.addEventListener('error', handleError);
+        return () => window.removeEventListener('error', handleError);
+    }, []);
+
+    if (hasError) {
+        return (
+            <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6">
+                <div className="w-full max-w-none">
+                    <div className="bg-red-50 border border-red-200 rounded-sm p-6 text-center">
+                        <h2 className="text-xl font-bold text-red-800 mb-2">Dashboard Error</h2>
+                        <p className="text-red-600 mb-4">{errorMessage}</p>
+                        <button
+                            onClick={() => { setHasError(false); setErrorMessage(''); }}
+                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+                        >
+                            Try Again
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const [showSummary, setShowSummary] = useState(false);
+    const [trendWindow, setTrendWindow] = useState('all');
+
+    // Multi-color palette for charts
+    const chartColors = [
+        '#3B82F6', '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#A855F7', '#F97316', '#06B6D4',
+        '#F43F5E', '#22D3EE', '#84CC16', '#EAB308', '#0EA5E9', '#8B5CF6', '#F472B6'
+    ];
+
+    // Helper functions for safe data access
+    const safeGet = (obj, path, defaultValue = null) => {
+        try {
+            return path.split('.').reduce((current, key) => current?.[key], obj) ?? defaultValue;
+        } catch {
+            return defaultValue;
+        }
     };
 
-    // Helper function to convert technical/statistical terms to user-friendly labels
-    const friendlyLabel = (key) => {
-        const map = {
-            mean: "Average",
-            median: "Middle Value",
-            std: "Variation",
-            min: "Minimum",
-            max: "Maximum",
-            sum: "Total",
-            count: "Count",
-            mode: "Most Common",
-            percentile: "Percentile",
-            range: "Range",
-            variance: "Spread",
-            skew: "Skewness",
-            kurtosis: "Peakedness",
-            // Add more as needed
-        };
-        const cleaned = key.replace(/_/g, '').toLowerCase();
-        for (const [stat, label] of Object.entries(map)) {
-            if (cleaned === stat || cleaned.endsWith(stat) || cleaned.startsWith(stat)) return label;
+    const hasValidData = (data) => {
+        if (!data) return false;
+        if (Array.isArray(data)) return data.length > 0;
+        if (typeof data === 'object') return Object.keys(data).length > 0;
+        return data !== null && data !== undefined && data !== '';
+    };
+
+    const getValidArray = (data, minLength = 1) => {
+        if (!Array.isArray(data) || data.length < minLength) return [];
+        return data.filter(item => item !== null && item !== undefined);
+    };
+
+    const formatValue = (value, type = 'auto') => {
+        if (value === null || value === undefined || value === '') return 'N/A';
+
+        const numValue = parseFloat(value);
+        if (isNaN(numValue)) return String(value);
+
+        switch (type) {
+            case 'currency':
+                return `₹${numValue.toLocaleString()}`;
+            case 'percentage':
+                return `${numValue.toFixed(2)}%`;
+            case 'number':
+                return numValue.toLocaleString();
+            default:
+                if (numValue > 1000) {
+                    return numValue.toLocaleString();
+                }
+                return numValue.toFixed(2);
         }
-        // Fallback: prettify
-        return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    };
+
+    const renderGenericChart = (data, title, type = 'bar') => {
+        if (!hasValidData(data)) return null;
+
+        // Try to detect chart data structure
+        let chartData = [];
+
+        if (Array.isArray(data)) {
+            if (data.length > 0 && typeof data[0] === 'object') {
+                chartData = data;
+            }
+        } else if (typeof data === 'object') {
+            chartData = Object.entries(data).map(([key, value]) => ({
+                name: key,
+                value: typeof value === 'object' ? value.value || value.count || value.total || 0 : value
+            }));
+        }
+
+        if (chartData.length === 0) return null;
+
+        return (
+            <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
+                <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        {type === 'pie' ? (
+                            <PieChart>
+                                <Pie
+                                    data={chartData}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={100}
+                                    fill={chartColors[0]}
+                                >
+                                    {chartData.map((_, index) => (
+                                        <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        ) : (
+                            <BarChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                <XAxis dataKey="name" />
+                                <YAxis />
+                                <Tooltip />
+                                <Legend />
+                                <Bar dataKey="value" fill={chartColors[0]} />
+                            </BarChart>
+                        )}
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        );
     };
 
     if (!file || !analysis) {
@@ -50,145 +167,31 @@ const RetailDashboard = ({ file, analysis }) => {
         );
     }
 
-    const { originalName } = file;
-    
-    // Multi-color palette for charts (matches HealthcareDashboard)
-    const chartColors = [
-        '#3B82F6', // blue
-        '#6366F1', // indigo
-        '#10B981', // green
-        '#F59E0B', // yellow
-        '#EF4444', // red
-        '#A855F7', // purple
-        '#F97316', // orange
-        '#06B6D4', // cyan
-        '#F43F5E', // pink
-        '#22D3EE', // teal
-        '#84CC16', // lime
-        '#EAB308', // amber
-        '#0EA5E9', // sky
-        '#8B5CF6', // violet
-        '#F472B6', // fuchsia
-    ];
+    // Export API response as JSON
+    const exportApiResponse = () => {
+        const apiResponse = {
+            file,
+            analysis,
+            timestamp: new Date().toISOString()
+        };
 
-    // Debug logging (as in HealthcareDashboard)
-    console.log('=== RETAIL DASHBOARD DEBUG ===');
-    console.log('File:', file);
-    console.log('Analysis:', analysis);
-    console.log('=== END DEBUG ===');
-
-    const [showSummary, setShowSummary] = useState(false);
-
-    // --- Trends scaling state ---
-    const [trendWindow, setTrendWindow] = useState('all');
-    const [customRange, setCustomRange] = useState({ start: '', end: '' });
-
-    // Generic section renderer for dynamic fields
-    const renderSection = (title, data) => {
-        if (!data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0)) {
-            return (
-                <div className="bg-white rounded p-4 border border-gray-200 mb-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">{title}</h4>
-                    <p className="text-gray-500">No data available.</p>
-                </div>
-            );
-        }
-        if (Array.isArray(data)) {
-            if (data.length > 0 && typeof data[0] === 'object' && !Array.isArray(data[0])) {
-                // Table
-                const columns = Object.keys(data[0]);
-                return (
-                    <div className="overflow-x-auto mb-4 bg-white rounded p-4 border border-gray-200">
-                        <h4 className="font-semibold text-gray-900 mb-2">{title}</h4>
-                        <table className="min-w-full text-sm border border-gray-200 rounded">
-                            <thead>
-                                <tr>
-                                    {columns.map(col => <th key={col} className="px-2 py-1 border-b text-left bg-blue-50 text-gray-700 font-semibold">{col}</th>)}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.map((row, i) => (
-                                    <tr key={i}>
-                                        {columns.map(col => <td key={col} className="px-2 py-1 border-b text-gray-800">{row[col]}</td>)}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                );
-            } else {
-                // List
-                return (
-                    <div className="mb-4 bg-white rounded p-4 border border-gray-200">
-                        <h4 className="font-semibold text-gray-900 mb-2">{title}</h4>
-                        <ul className="list-disc list-inside text-gray-800">
-                            {data.map((item, i) => <li key={i}>{String(item)}</li>)}
-                        </ul>
-                    </div>
-                );
-            }
-        }
-        if (typeof data === 'object') {
-            return (
-                <div className="mb-4 bg-white rounded p-4 border border-gray-200">
-                    <h4 className="font-semibold text-gray-900 mb-2">{title}</h4>
-                    <ul className="list-disc list-inside text-gray-800">
-                        {Object.entries(data).map(([k, v]) => (
-                            <li key={k}><span className="font-semibold text-gray-700">{k}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</li>
-                        ))}
-                    </ul>
-                </div>
-            );
-        }
-        // Primitive
-        return (
-            <div className="mb-4 bg-white rounded p-4 border border-gray-200">
-                <h4 className="font-semibold text-gray-900 mb-2">{title}</h4>
-                <p className="text-gray-800">{String(data)}</p>
-            </div>
-        );
+        const dataStr = JSON.stringify(apiResponse, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${file?.originalName?.replace(/\.[^/.]+$/, '') || 'retail_analysis'}_api_response.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
-    // Utility: Normalize array-of-arrays to array-of-objects
-    function normalizeArrayOfArrays(arr, labelKey = 'name', valueKey = 'value') {
-        if (
-            Array.isArray(arr) &&
-            arr.length === 2 &&
-            Array.isArray(arr[0]) &&
-            Array.isArray(arr[1]) &&
-            arr[0].length === arr[1].length
-        ) {
-            return arr[0].map((label, i) => ({ [labelKey]: label, [valueKey]: arr[1][i] }));
-        }
-        return arr;
-    }
-
-    // --- Fixed KPI order and headings ---
-    const KPI_ORDER = [
-        { key: 'avg_order_value', label: 'Avg Order Value' },
-        { key: 'avg_sales', label: 'Avg Sales' },
-        { key: 'median_sales', label: 'Median Sales' },
-        { key: 'profit_margin_percent', label: 'Profit Margin (%)' },
-        { key: 'sales_forecast_next_period', label: 'Sales Forecast (Next Period)' },
-        { key: 'total_loss', label: 'Total Loss' },
-        { key: 'total_profit', label: 'Total Profit' },
-        { key: 'total_sales', label: 'Total Sales' },
-    ];
-
-    // For high/low performers and totals, remove normalization and dynamic key detection, use fixed keys as per your sample
-    // High Performers
-    let highPerf = analysis.insights.highPerformers?.top_products || [];
-    // Low Performers
-    let lowPerf = analysis.insights.lowPerformers?.low_products || [];
-    // Totals: sales_by_region
-    let salesByRegion = analysis.insights.totals?.sales_by_region || [];
-    // Totals: sales_by_category
-    let salesByCategory = analysis.insights.totals?.sales_by_category || [];
-
-    // Export to Excel function (multi-sheet)
+    // Export to Excel function
     const exportToExcel = () => {
         if (!analysis) return;
         const wb = XLSX.utils.book_new();
+
         // KPIs
         if (analysis.insights?.kpis) {
             const kpiSheet = XLSX.utils.aoa_to_sheet([
@@ -197,235 +200,197 @@ const RetailDashboard = ({ file, analysis }) => {
             ]);
             XLSX.utils.book_append_sheet(wb, kpiSheet, 'KPIs');
         }
-        // Summary
-        if (analysis.summary) {
-            const summaryRows = Object.entries(analysis.summary).map(([k, v]) => {
-                if (typeof v === 'object' && v !== null) {
-                    return [k, JSON.stringify(v)];
-                }
-                return [k, v];
-            });
-            const summarySheet = XLSX.utils.aoa_to_sheet([
-                ['Field', 'Value'],
-                ...summaryRows
-            ]);
-            XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
-        }
-        // High Performers
-        if (analysis.insights?.highPerformers?.top_products?.length) {
-            const arr = analysis.insights.highPerformers.top_products;
-            const highSheet = XLSX.utils.json_to_sheet(arr);
-            XLSX.utils.book_append_sheet(wb, highSheet, 'High Performers');
-        }
-        // Low Performers
-        if (analysis.insights?.lowPerformers?.low_products?.length) {
-            const arr = analysis.insights.lowPerformers.low_products;
-            const lowSheet = XLSX.utils.json_to_sheet(arr);
-            XLSX.utils.book_append_sheet(wb, lowSheet, 'Low Performers');
-        }
-        // Totals
-        if (analysis.insights?.totals) {
-            Object.entries(analysis.insights.totals).forEach(([key, value]) => {
-                if (Array.isArray(value) && value.length && typeof value[0] === 'object') {
-                    const sheet = XLSX.utils.json_to_sheet(value);
-                    XLSX.utils.book_append_sheet(wb, sheet, `Totals - ${key}`);
-                } else if (Array.isArray(value) && value.length >= 2 && Array.isArray(value[0]) && Array.isArray(value[1])) {
-                    // Array of arrays (labels, values)
-                    const rows = value[0].map((label, i) => ({ [key + ' Name']: label, [key + ' Value']: value[1][i] }));
-                    const sheet = XLSX.utils.json_to_sheet(rows);
-                    XLSX.utils.book_append_sheet(wb, sheet, `Totals - ${key}`);
-                } else if (typeof value === 'object' && value !== null) {
-                    const rows = Object.entries(value).map(([k, v]) => ({ [k]: v }));
-                    const sheet = XLSX.utils.json_to_sheet(rows);
-                    XLSX.utils.book_append_sheet(wb, sheet, `Totals - ${key}`);
-                }
-            });
-        }
-        // Trends
-        if (analysis.insights?.trends?.daily?.length) {
-            const trendSheet = XLSX.utils.json_to_sheet(analysis.insights.trends.daily);
-            XLSX.utils.book_append_sheet(wb, trendSheet, 'Trends - Daily');
-        }
-        if (analysis.insights?.trends?.sales_over_time?.Date && Array.isArray(analysis.insights.trends.sales_over_time.Date)) {
-            const dates = analysis.insights.trends.sales_over_time.Date;
-            const sales = analysis.insights.trends.sales_over_time.Sales || [];
-            const rows = dates.map((date, i) => ({ Date: date, Sales: sales[i] }));
-            const trendSheet = XLSX.utils.json_to_sheet(rows);
-            XLSX.utils.book_append_sheet(wb, trendSheet, 'Trends - Sales Over Time');
-        }
-        // Hypotheses
-        if (analysis.insights?.hypothesis?.length) {
-            const hypoSheet = XLSX.utils.aoa_to_sheet([
-                ['Hypothesis'],
-                ...analysis.insights.hypothesis.map(h => [h])
-            ]);
-            XLSX.utils.book_append_sheet(wb, hypoSheet, 'Hypotheses');
-        }
+
         XLSX.writeFile(wb, `${file?.originalName?.replace(/\.[^/.]+$/, '') || 'retail_analysis'}.xlsx`);
     };
 
     return (
         <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6">
             <div className="w-full max-w-none">
-                {/* Common Header with Export Button */}
-                <div className="flex items-center justify-between mb-6">
+                {/* Header with Export Buttons */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                     <h2 className="text-2xl font-bold text-gray-800">Retail Dashboard</h2>
-                    <button
-                        onClick={exportToExcel}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
-                    >
-                        <FiDownload className="w-5 h-5" />
-                        Export to Excel
-                    </button>
-                </div>
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-                    className="space-y-6"
-                >
-                    {/* Power BI Style KPI Section */}
-                    <div className="space-y-4">
-                        {/* Top 4 KPI Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {(() => {
-                                const kpiCards = KPI_ORDER.map(({ key, label }, index) => {
-                                    const value = analysis.insights.kpis ? analysis.insights.kpis[key] : undefined;
-                                    if (value === undefined || value === null || value === 0) return null;
-                            return (
-                                <motion.div
-                                    key={key}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                            className="bg-white border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-md"
-                                            style={{ borderRadius: '2px' }}
-                                        >
-                                            <div className="h-1" style={{ backgroundColor: '#3B82F6' }}></div>
-                                            <div className="p-4">
-                                                <div className="flex items-start justify-between mb-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="p-2 rounded-sm text-white" style={{ backgroundColor: '#3B82F6' }}>
-                                                            <FiDollarSign className="w-5 h-5" />
-                                        </div>
-                                                        <div className="text-xs text-gray-600 font-medium">
-                                                            {label}
-                                        </div>
-                                    </div>
-                                                    <div className="text-xs text-blue-600 font-semibold">
-                                                        +0%
+                    <div className="flex gap-3">
+                        <button
+                            onClick={exportApiResponse}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded shadow hover:bg-green-700 transition"
+                        >
+                            <FiDownload className="w-5 h-5" />
+                            Export API Response (JSON)
+                        </button>
+                        <button
+                            onClick={exportToExcel}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
+                        >
+                            <FiDownload className="w-5 h-5" />
+                            Export to Excel
+                        </button>
                     </div>
                 </div>
-                                                <div className="text-2xl font-bold text-gray-900 mb-1">
-                                                    {key.includes('total') || key.includes('avg') || key.includes('median')
-                                                        ? `₹${typeof value === 'number' ? round4(value).toLocaleString() : value}`
-                                                        : typeof value === 'number' ? round4(value).toLocaleString() : value}
+
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-6"
+                >
+                    {/* KPI Section - Primary and Advanced KPIs */}
+                    {analysis?.insights?.kpis && Object.keys(analysis.insights.kpis).length > 0 && (
+                        <div className="space-y-6">
+                            {/* Primary KPI Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {Object.entries(analysis.insights.kpis).slice(0, 8).map(([key, value], index) => {
+                                    if (value === undefined || value === null || value === '') return null;
+
+                                    const getIcon = (key) => {
+                                        if (key.includes('total') || key.includes('sales')) return FiDollarSign;
+                                        if (key.includes('profit')) return FiTrendingUp;
+                                        if (key.includes('margin') || key.includes('percent')) return FiBarChart2;
+                                        if (key.includes('avg') || key.includes('order')) return FiShoppingCart;
+                                        return FiBarChart2;
+                                    };
+
+                                    const IconComponent = getIcon(key);
+                                    const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+                                    const formatKpiValue = (key, value) => {
+                                        const numValue = parseFloat(value);
+                                        if (isNaN(numValue)) return String(value);
+
+                                        if (key.includes('total') || key.includes('avg') || key.includes('median') || key.includes('forecast')) {
+                                            return `₹${numValue.toLocaleString()}`;
+                                        }
+                                        if (key.includes('percent') || key.includes('margin')) {
+                                            return `${numValue.toFixed(2)}%`;
+                                        }
+                                        return numValue.toLocaleString();
+                                    };
+
+                                    return (
+                                        <motion.div
+                                            key={key}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: index * 0.1 }}
+                                            className="bg-white border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-md rounded-sm"
+                                        >
+                                            <div className="h-1" style={{ backgroundColor: chartColors[index % chartColors.length] }}></div>
+                                            <div className="p-4">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <div className="p-2 rounded-sm text-white" style={{ backgroundColor: chartColors[index % chartColors.length] }}>
+                                                        <IconComponent className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="text-xs text-gray-600 font-medium">
+                                                        {label}
+                                                    </div>
                                                 </div>
-                                                <div className="text-sm text-gray-700 font-medium">
-                                                    {label}
+                                                <div className="text-xl font-bold text-gray-900">
+                                                    {formatKpiValue(key, value)}
                                                 </div>
                                             </div>
                                         </motion.div>
                                     );
-                                }).filter(Boolean);
-                                // Add empty placeholders to fill the row to 4
-                                const placeholders = Array.from({ length: Math.max(0, 4 - kpiCards.length) }, (_, i) => (
-                                    <div key={`kpi-placeholder-${i}`} className="invisible" />
-                                ));
-                                return [...kpiCards, ...placeholders];
-                            })()}
-                        </div>
-                        {/* Bottom 2 KPI Cards - Full Width Bar Style (optional, can be added if you have more KPIs) */}
+                                }).filter(Boolean)}
+                            </div>
+
+                            {/* Advanced KPI Cards */}
+                            {analysis?.insights?.advanced_kpis && Object.keys(analysis.insights.advanced_kpis).length > 0 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {Object.entries(analysis.insights.advanced_kpis).slice(0, 8).map(([key, value], index) => {
+                                        if (value === undefined || value === null) return null;
+
+                                        const IconComponent = FiCpu;
+                                        const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+                                        const formatAdvancedValue = (key, value) => {
+                                            const numValue = parseFloat(value);
+                                            if (isNaN(numValue)) return String(value);
+
+                                            if (key.includes('total') || key.includes('avg') || key.includes('daily')) {
+                                                return `₹${numValue.toLocaleString()}`;
+                                            }
+                                            if (key.includes('percent') || key.includes('rate') || key.includes('variation')) {
+                                                return `${numValue.toFixed(2)}%`;
+                                            }
+                                            return numValue.toLocaleString();
+                                        };
+
+                                        return (
+                                            <motion.div
+                                                key={key}
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: (index + 8) * 0.1 }}
+                                                className="bg-white border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-md rounded-sm"
+                                            >
+                                                <div className="h-1" style={{ backgroundColor: chartColors[(index + 8) % chartColors.length] }}></div>
+                                                <div className="p-4">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <div className="p-2 rounded-sm text-white" style={{ backgroundColor: chartColors[(index + 8) % chartColors.length] }}>
+                                                            <IconComponent className="w-4 h-4" />
+                                                        </div>
+                                                        <div className="text-xs text-gray-600 font-medium">
+                                                            {label}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-xl font-bold text-gray-900">
+                                                        {formatAdvancedValue(key, value)}
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    }).filter(Boolean)}
                                 </div>
-                    {/* Trends - Line/Area Chart for Daily Trends */}
-                    {analysis.insights.trends?.daily && Array.isArray(analysis.insights.trends.daily) && analysis.insights.trends.daily.length > 0 && (
-                        <div className="bg-white border border-gray-200 shadow-sm p-6" style={{ borderRadius: '2px' }}>
-                            <div className="flex items-center justify-between mb-6">
+                            )}
+                        </div>
+                    )}
+                    {/* Daily Trends Chart */}
+                    {analysis?.insights?.trends?.daily && Array.isArray(analysis.insights.trends.daily) && analysis.insights.trends.daily.length > 0 && (
+                        <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    <FiBarChart2 className="w-5 h-5 text-[#3B82F6]" /> Sales Trends (Daily)
+                                    <FiBarChart2 className="w-5 h-5 text-[#3B82F6]" /> Daily Sales Trends
                                 </h3>
                                 {analysis.insights.trends.daily.length > 30 && (
-                                    <div className="flex gap-2 items-center bg-white/70 border border-blue-100 rounded-xl px-3 py-2 shadow-sm">
+                                    <div className="flex gap-2 items-center">
                                         <span className="text-sm font-medium text-gray-700">Show:</span>
                                         <select
                                             value={trendWindow}
-                                            onChange={e => {
-                                                setTrendWindow(e.target.value);
-                                                if (e.target.value !== 'custom') {
-                                                    setCustomRange({ start: '', end: '' });
-                                                }
-                                            }}
+                                            onChange={e => setTrendWindow(e.target.value)}
                                             className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                                         >
                                             <option value="7">Last 7 days</option>
                                             <option value="30">Last 30 days</option>
                                             <option value="90">Last 90 days</option>
                                             <option value="all">All</option>
-                                            <option value="custom">Custom Range…</option>
                                         </select>
-                                        {trendWindow === 'custom' && (
-                                            <>
-                                                <input
-                                                    type="date"
-                                                    value={customRange.start}
-                                                    max={customRange.end || undefined}
-                                                    onChange={e => setCustomRange(r => ({ ...r, start: e.target.value }))}
-                                                    className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white ml-2"
-                                                />
-                                                <span className="mx-1 text-gray-500">to</span>
-                                                <input
-                                                    type="date"
-                                                    value={customRange.end}
-                                                    min={customRange.start || undefined}
-                                                    onChange={e => setCustomRange(r => ({ ...r, end: e.target.value }))}
-                                                    className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                                                />
-                                            </>
-                                        )}
-                                </div>
-                        )}
-                    </div>
+                                    </div>
+                                )}
+                            </div>
                             <div className="h-[350px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart
                                         data={(() => {
                                             const daily = analysis.insights.trends.daily;
-                                            // Helper to normalize to YYYY-MM-DD
-                                            const toYMD = (date) => {
-                                                if (!date) return '';
-                                                const d = new Date(date);
-                                                if (isNaN(d)) return '';
-                                                return d.toISOString().slice(0, 10);
-                                            };
-                                            if (trendWindow === 'custom' && (customRange.start || customRange.end)) {
-                                                const startYMD = customRange.start;
-                                                const endYMD = customRange.end;
-                                                return daily.filter(d => {
-                                                    const dYMD = toYMD(d.date);
-                                                    if (!dYMD) return false;
-                                                    if (startYMD && endYMD) return dYMD >= startYMD && dYMD <= endYMD;
-                                                    if (startYMD) return dYMD >= startYMD;
-                                                    if (endYMD) return dYMD <= endYMD;
-                                                    return true;
-                                                }).map(d => ({ ...d, date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }));
-                                            } else {
-                                                let window = daily.length;
-                                                if (trendWindow !== 'all') window = Math.min(daily.length, parseInt(trendWindow));
-                                                const start = daily.length - window;
-                                                return daily.slice(start).map(d => ({ ...d, date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }));
-                                            }
+                                            let window = daily.length;
+                                            if (trendWindow !== 'all') window = Math.min(daily.length, parseInt(trendWindow));
+                                            const start = daily.length - window;
+                                            return daily.slice(start).map(d => ({
+                                                ...d,
+                                                date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                            }));
                                         })()}
                                         margin={{ top: 10, right: 30, left: 20, bottom: 0 }}
                                     >
                                         <defs>
                                             <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor={chartColors[0]} stopOpacity={0.8}/>
-                                                <stop offset="95%" stopColor={chartColors[0]} stopOpacity={0}/>
+                                                <stop offset="5%" stopColor={chartColors[0]} stopOpacity={0.8} />
+                                                <stop offset="95%" stopColor={chartColors[0]} stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                         <XAxis dataKey="date" />
                                         <YAxis />
-                                        <Tooltip formatter={(value, name) => name === 'total' ? [`₹${value.toLocaleString()}`, 'Total'] : [value, name]} />
+                                        <Tooltip formatter={(value, name) => [`₹${value.toLocaleString()}`, name === 'total' ? 'Total Sales' : name]} />
                                         <Legend />
                                         <Area type="monotone" dataKey="total" stroke={chartColors[0]} fill="url(#colorTrend)" strokeWidth={3} />
                                     </AreaChart>
@@ -433,855 +398,787 @@ const RetailDashboard = ({ file, analysis }) => {
                             </div>
                         </div>
                     )}
-                    {/* --- Top Row: Special KPIs + Totals (now below KPIs) --- */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 mt-8">
-                        {/* Left: Frequent Customers Card (if present) */}
-                        {analysis.insights.customer?.frequent_customers && Array.isArray(analysis.insights.customer.frequent_customers) && analysis.insights.customer.frequent_customers.length > 0 && analysis.insights.customer.frequent_customers.some(cust => Object.values(cust).some(v => v !== undefined && v !== null && v !== 0 && v !== '')) && (
-                        <div className="bg-white border border-gray-200 shadow-sm p-6" style={{ borderRadius: '2px' }}>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <FiUsers className="w-5 h-5 text-[#3B82F6]" /> Frequent Customers
+                    {/* Sales by Channel/Region - Dynamic */}
+                    {(() => {
+                        const salesByRegion = safeGet(analysis, 'insights.totals.sales_by_region', []);
+                        if (!hasValidData(salesByRegion)) return null;
+
+                        // Detect data structure dynamically
+                        const validData = getValidArray(salesByRegion);
+                        if (validData.length === 0) return null;
+
+                        // Find the keys dynamically
+                        const firstItem = validData[0];
+                        const keys = Object.keys(firstItem);
+                        const nameKey = keys.find(k => typeof firstItem[k] === 'string') || keys[0];
+                        const valueKey = keys.find(k => typeof firstItem[k] === 'number') || keys[1];
+
+                        if (!nameKey || !valueKey) return null;
+
+                        return (
+                            <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                    <FiUsers className="w-5 h-5 text-[#3B82F6]" /> Sales Distribution
+                                </h3>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <div className="h-[300px] w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={validData}
+                                                    dataKey={valueKey}
+                                                    nameKey={nameKey}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    outerRadius={100}
+                                                    fill={chartColors[0]}
+                                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                                >
+                                                    {validData.map((_, index) => (
+                                                        <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip formatter={(value) => [formatValue(value, 'currency'), nameKey]} />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <h4 className="font-semibold text-gray-800">Breakdown</h4>
+                                        {validData.map((item, index) => (
+                                            <div key={index} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: `${chartColors[index % chartColors.length]}15` }}>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-4 h-4 rounded" style={{ backgroundColor: chartColors[index % chartColors.length] }}></div>
+                                                    <span className="font-medium text-gray-800">{item[nameKey] || 'Unknown'}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-bold text-gray-900">{formatValue(item[valueKey], 'currency')}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                    {/* High and Low Performers - Dynamic */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* High Performers */}
+                        {(() => {
+                            const highPerformers = safeGet(analysis, 'insights.highPerformers.top_products', []) ||
+                                safeGet(analysis, 'insights.product_analysis.category_performance', [])?.slice(0, 5) || [];
+
+                            const validData = getValidArray(highPerformers);
+                            if (validData.length === 0) return null;
+
+                            // Detect keys dynamically
+                            const firstItem = validData[0];
+                            const keys = Object.keys(firstItem);
+                            const nameKey = keys.find(k => typeof firstItem[k] === 'string') || keys[0];
+                            const valueKey = keys.find(k => typeof firstItem[k] === 'number') || keys[1];
+
+                            return (
+                                <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                        <FiTrendingUp className="w-5 h-5 text-[#10B981]" /> Top Performers
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {validData.map((item, index) => (
+                                            <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold">
+                                                        {index + 1}
+                                                    </div>
+                                                    <span className="font-medium text-gray-800">{item[nameKey] || 'Unknown'}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-bold text-green-700">{formatValue(item[valueKey], 'currency')}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Low Performers */}
+                        {(() => {
+                            const lowPerformers = safeGet(analysis, 'insights.lowPerformers.low_products', []) ||
+                                safeGet(analysis, 'insights.product_analysis.category_performance', [])?.slice(-3) || [];
+
+                            const validData = getValidArray(lowPerformers);
+                            if (validData.length === 0) return null;
+
+                            // Detect keys dynamically
+                            const firstItem = validData[0];
+                            const keys = Object.keys(firstItem);
+                            const nameKey = keys.find(k => typeof firstItem[k] === 'string') || keys[0];
+                            const valueKey = keys.find(k => typeof firstItem[k] === 'number') || keys[1];
+
+                            return (
+                                <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                        <FiTrendingUp className="w-5 h-5 text-[#EF4444]" /> Low Performers
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {validData.map((item, index) => (
+                                            <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-bold">
+                                                        {index + 1}
+                                                    </div>
+                                                    <span className="font-medium text-gray-800">{item[nameKey] || 'Unknown'}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-bold text-red-700">{formatValue(item[valueKey], 'currency')}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                    {/* Customer Segments Analysis - Dynamic */}
+                    {(() => {
+                        const segmentSummary = safeGet(analysis, 'insights.customer_segments.rfm_analysis.segment_summary', {});
+                        if (!hasValidData(segmentSummary)) return null;
+
+                        const segmentData = Object.entries(segmentSummary).map(([segment, data]) => ({
+                            name: segment.replace(/_/g, ' '),
+                            value: safeGet(data, 'count', 0),
+                            totalValue: safeGet(data, 'total_value', 0)
+                        })).filter(item => item.value > 0);
+
+                        if (segmentData.length === 0) return null;
+
+                        return (
+                            <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                    <FiUsers className="w-5 h-5 text-[#3B82F6]" /> Customer Segments
+                                </h3>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {/* Pie Chart */}
+                                    <div className="h-[300px] w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={segmentData}
+                                                    dataKey="value"
+                                                    nameKey="name"
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    outerRadius={100}
+                                                    fill={chartColors[0]}
+                                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                                >
+                                                    {segmentData.map((_, index) => (
+                                                        <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip formatter={(value, name, props) => [
+                                                    `${value} customers (${formatValue(props.payload.totalValue, 'currency')})`,
+                                                    name
+                                                ]} />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    {/* Segment Details */}
+                                    <div className="space-y-3">
+                                        <h4 className="font-semibold text-gray-800">Segment Breakdown</h4>
+                                        {segmentData.map((item, index) => (
+                                            <div key={item.name} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: `${chartColors[index % chartColors.length]}15` }}>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-4 h-4 rounded" style={{ backgroundColor: chartColors[index % chartColors.length] }}></div>
+                                                    <span className="font-medium text-gray-800">{item.name}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-bold text-gray-900">{item.value} customers</div>
+                                                    <div className="text-sm text-gray-600">{formatValue(item.totalValue, 'currency')}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                    {/* Seasonal Analysis */}
+                    {analysis?.insights?.seasonal_analysis?.seasonal_indices && (
+                        <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <FiBarChart2 className="w-5 h-5 text-[#3B82F6]" /> Seasonal Performance
                             </h3>
-                            <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={analysis.insights.customer.frequent_customers} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                        <XAxis dataKey="customer" />
-                                        <YAxis />
-                                        <Tooltip formatter={(value) => [value, 'Purchases']} />
-                                        <Legend />
-                                        <Bar dataKey="purchases" fill={chartColors[2]} radius={[8, 8, 0, 0]} barSize={40}>
-                                            {analysis.insights.customer.frequent_customers.map((_, index) => (
-                                                <Cell key={`cell-cust-${index}`} fill={chartColors[index % chartColors.length]} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Bar Chart */}
+                                <div className="h-[300px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={Object.entries(analysis.insights.seasonal_analysis.seasonal_indices).map(([quarter, data]) => ({
+                                                quarter,
+                                                avgSales: parseFloat(data.avg_sales),
+                                                seasonalIndex: parseFloat(data.seasonal_index),
+                                                interpretation: data.interpretation
+                                            }))}
+                                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis dataKey="quarter" />
+                                            <YAxis />
+                                            <Tooltip formatter={(value, name) => [
+                                                name === 'avgSales' ? `₹${value.toLocaleString()}` : value,
+                                                name === 'avgSales' ? 'Average Sales' : 'Seasonal Index'
+                                            ]} />
+                                            <Legend />
+                                            <Bar dataKey="avgSales" fill={chartColors[0]} radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="seasonalIndex" fill={chartColors[1]} radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                {/* Seasonal Insights */}
+                                <div className="space-y-3">
+                                    <h4 className="font-semibold text-gray-800">Quarterly Insights</h4>
+                                    {Object.entries(analysis.insights.seasonal_analysis.seasonal_indices).map(([quarter, data], index) => (
+                                        <div key={quarter} className="p-3 rounded-lg border border-gray-200">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="font-medium text-gray-800">{quarter}</span>
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${data.interpretation === 'Above Average' ? 'bg-green-100 text-green-800' :
+                                                    data.interpretation === 'Below Average' ? 'bg-red-100 text-red-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                    {data.interpretation}
+                                                </span>
+                                            </div>
+                                            <div className="text-sm text-gray-600">
+                                                <div>Avg Sales: ₹{parseFloat(data.avg_sales).toLocaleString()}</div>
+                                                <div>Index: {data.seasonal_index}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}
-                        {/* Right: Totals Card (unchanged) */}
-                        {analysis.insights.totals && Object.keys(analysis.insights.totals).length > 0 && (
-                            <div className="bg-white border border-gray-200 shadow-sm p-6 flex flex-col justify-between min-h-[240px]" style={{ borderRadius: '2px' }}>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                    <FiBarChart2 className="w-5 h-5 text-[#3B82F6]" /> Totals
-                                </h3>
-                                <div className="flex-1 grid grid-cols-1 gap-4 min-h-0 items-center justify-center">
-                                    {Object.entries(analysis.insights.totals).map(([key, value], idx) => {
-                                        // Pie chart for array of objects with two keys (e.g., sales_by_region)
-                                        if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && Object.keys(value[0]).length === 2) {
-                                            const [nameKey, valueKey] = Object.keys(value[0]);
-                                            return (
-                                                <div
-                                                    key={key}
-                                                    className={`${Object.keys(analysis.insights.totals).length === 1 ? 'col-span-1 max-w-lg mx-auto' : 'col-span-1'} flex flex-col items-center justify-center h-full w-full flex-1 overflow-visible`}
-                                                >
-                                                    <h4 className="font-bold mb-4 text-center w-full break-words">{friendlyLabel(key)}</h4>
-                                                    <div className="w-full flex justify-center items-center flex-1">
-                                                        <div className="w-full h-full flex justify-center items-center">
-                                                            <ResponsiveContainer width="100%" height={300}>
-                                                            <PieChart>
-                                                                <Pie
-                                                                    data={value}
-                                                                    dataKey={valueKey}
-                                                                    nameKey={nameKey}
-                                                                    cx="50%"
-                                                                    cy="50%"
-                                                                        outerRadius="70%"
-                                                                    fill={chartColors[0]}
-                                                                    label={({ percent, name }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                                                >
-                                                                    {value.map((entry, i) => (
-                                                                        <Cell key={`cell-${i}`} fill={chartColors[i % chartColors.length]} />
-                                                                    ))}
-                                                                </Pie>
-                                                                <Tooltip formatter={(v, n) => [`₹${v.toLocaleString()}`, n]} />
-                                                                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ textAlign: 'center', width: '100%' }} height={60} />
-                                                            </PieChart>
-                                                        </ResponsiveContainer>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    
-                                    // Handle array data that can be converted to pie charts (like Sales By Category, Sales By Region)
-                                    if (Array.isArray(value) && value.length >= 2 && Array.isArray(value[0]) && Array.isArray(value[1])) {
-                                        const [labels, data] = value;
-                                        const pieData = labels.map((label, index) => ({
-                                            name: label,
-                                            value: data[index] || 0
-                                        }));
-                                        
-                                        return (
-                                            <div
-                                                key={key}
-                                                className="col-span-1 max-w-lg mx-auto flex flex-col items-center justify-center h-full w-full flex-1 overflow-visible"
-                                            >
-                                                <h4 className="font-bold mb-4 text-center w-full break-words">{friendlyLabel(key)}</h4>
-                                                <div className="w-full flex justify-center items-center flex-1">
-                                                    <div className="w-full h-full flex justify-center items-center">
-                                                        <ResponsiveContainer width="100%" height={300}>
-                                                            <PieChart>
-                                                                <Pie
-                                                                    data={pieData}
-                                                                    dataKey="value"
-                                                                    nameKey="name"
-                                                                    cx="50%"
-                                                                    cy="50%"
-                                                                    outerRadius="70%"
-                                                                    fill={chartColors[0]}
-                                                                    label={({ percent, name }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                                                >
-                                                                    {pieData.map((entry, i) => (
-                                                                        <Cell key={`cell-${i}`} fill={chartColors[i % chartColors.length]} />
-                                                                    ))}
-                                                                </Pie>
-                                                                <Tooltip formatter={(v, n) => [`₹${v.toLocaleString()}`, n]} />
-                                                                <Legend verticalAlign="bottom" align="center" wrapperStyle={{ textAlign: 'center', width: '100%' }} height={60} />
-                                                            </PieChart>
-                                                        </ResponsiveContainer>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    
-                                    // Handle object with Region and Sales arrays
-                                    if (typeof value === 'object' && value !== null && value.Region && value.Sales && Array.isArray(value.Region) && Array.isArray(value.Sales)) {
-                                        const pieData = value.Region.map((region, index) => ({
-                                            name: region,
-                                            value: value.Sales[index] || 0
-                                        }));
-                                        
-                                        return (
-                                            <div
-                                                key={key}
-                                                className="col-span-1 max-w-lg mx-auto flex flex-col items-center justify-center h-full w-full flex-1 overflow-visible"
-                                            >
-                                                <h4 className="font-bold mb-4 text-center w-full break-words">{friendlyLabel(key)}</h4>
-                                                <div className="w-full flex justify-center items-center flex-1">
-                                                    <div className="w-full h-full flex justify-center items-center">
-                                                        <ResponsiveContainer width="100%" height={300}>
-                                                            <PieChart>
-                                                                <Pie
-                                                                    data={pieData}
-                                                                    dataKey="value"
-                                                                    nameKey="name"
-                                                                    cx="50%"
-                                                                    cy="50%"
-                                                                    outerRadius="70%"
-                                                                    fill={chartColors[0]}
-                                                                    label={({ percent, name }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                                                >
-                                                                    {pieData.map((entry, i) => (
-                                                                        <Cell key={`cell-${i}`} fill={chartColors[i % chartColors.length]} />
-                                                                    ))}
-                                                                </Pie>
-                                                                <Tooltip formatter={(v, n) => [`₹${v.toLocaleString()}`, n]} />
-                                                                <Legend verticalAlign="bottom" align="center" wrapperStyle={{ textAlign: 'center', width: '100%' }} height={60} />
-                                                            </PieChart>
-                                                        </ResponsiveContainer>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    
-                                    // Card for primitives/objects
-                                    if (typeof value === 'object' && value !== null) {
-                                        return (
-                                            <div key={key} className={`${Object.keys(analysis.insights.totals).length === 1 ? 'col-span-1 max-w-lg mx-auto' : 'col-span-1'} h-full w-full`}>
-                                                <h4 className="font-bold mb-2">{friendlyLabel(key)}</h4>
-                                                <ul className="list-disc list-inside">
-                                                    {Object.entries(value).map(([k, v]) => (
-                                                        <li key={k}><span className="font-semibold">{k}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        );
-                                    }
-                                    // Primitive
-                                    return (
-                                        <div key={key} className={`${Object.keys(analysis.insights.totals).length === 1 ? 'col-span-1 max-w-lg mx-auto' : 'col-span-1'} flex flex-col items-center justify-center h-full w-full`}>
-                                            <h4 className="font-bold mb-2">{friendlyLabel(key)}</h4>
-                                            <p className="text-2xl font-bold text-[#7400B8]">{String(value)}</p>
+                    {/* Forecasting */}
+                    {analysis?.insights?.forecasting?.trend_forecast?.forecasts && (
+                        <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <FiTrendingUp className="w-5 h-5 text-[#3B82F6]" /> Sales Forecast
+                            </h3>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Forecast Chart */}
+                                <div className="h-[300px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart
+                                            data={analysis.insights.forecasting.trend_forecast.forecasts.map(forecast => ({
+                                                period: `Day ${forecast.period}`,
+                                                forecast: parseFloat(forecast.forecast_value),
+                                                confidence: forecast.confidence * 100
+                                            }))}
+                                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis dataKey="period" />
+                                            <YAxis />
+                                            <Tooltip formatter={(value, name) => [
+                                                name === 'forecast' ? `₹${value.toLocaleString()}` : `${value.toFixed(0)}%`,
+                                                name === 'forecast' ? 'Forecast' : 'Confidence'
+                                            ]} />
+                                            <Legend />
+                                            <Line type="monotone" dataKey="forecast" stroke={chartColors[0]} strokeWidth={3} dot={{ fill: chartColors[0], strokeWidth: 2, r: 6 }} />
+                                            <Line type="monotone" dataKey="confidence" stroke={chartColors[1]} strokeWidth={2} strokeDasharray="5 5" />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                {/* Forecast Details */}
+                                <div className="space-y-3">
+                                    <h4 className="font-semibold text-gray-800">Forecast Details</h4>
+                                    <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                                        <div className="text-sm text-blue-800">
+                                            <div><strong>Method:</strong> {analysis.insights.forecasting.trend_forecast.methodology}</div>
+                                            <div><strong>Growth Rate:</strong> {analysis.insights.forecasting.trend_forecast.avg_growth_rate}</div>
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                    <div className="space-y-2">
+                                        {analysis.insights.forecasting.trend_forecast.forecasts.slice(0, 5).map((forecast, index) => (
+                                            <div key={index} className="flex items-center justify-between p-2 rounded border border-gray-200">
+                                                <span className="text-sm font-medium">Day {forecast.period}</span>
+                                                <div className="text-right">
+                                                    <div className="font-bold">₹{parseFloat(forecast.forecast_value).toLocaleString()}</div>
+                                                    <div className="text-xs text-gray-600">{(forecast.confidence * 100).toFixed(0)}% confidence</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {/* Performance Metrics */}
+                    {analysis?.insights?.performance_metrics && (
+                        <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <FiTrendingUp className="w-5 h-5 text-[#3B82F6]" /> Performance Metrics
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {/* Sales Velocity */}
+                                {analysis.insights.performance_metrics.sales_velocity && (
+                                    <div className="p-4 rounded-lg border border-gray-200">
+                                        <h4 className="font-semibold text-gray-800 mb-2">Sales Velocity</h4>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between">
+                                                <span className="text-sm text-gray-600">Sales per Day</span>
+                                                <span className="font-bold">₹{analysis.insights.performance_metrics.sales_velocity.sales_per_day}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-sm text-gray-600">Transactions per Day</span>
+                                                <span className="font-bold">{analysis.insights.performance_metrics.sales_velocity.transactions_per_day}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Performance Consistency */}
+                                {analysis.insights.performance_metrics.performance_consistency && (
+                                    <div className="p-4 rounded-lg border border-gray-200">
+                                        <h4 className="font-semibold text-gray-800 mb-2">Performance Consistency</h4>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between">
+                                                <span className="text-sm text-gray-600">Consistency Score</span>
+                                                <span className="font-bold">{analysis.insights.performance_metrics.performance_consistency.consistency_score}%</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-sm text-gray-600">Volatility Level</span>
+                                                <span className={`font-bold ${analysis.insights.performance_metrics.performance_consistency.volatility_level === 'High' ? 'text-red-600' :
+                                                    analysis.insights.performance_metrics.performance_consistency.volatility_level === 'Medium' ? 'text-yellow-600' :
+                                                        'text-green-600'
+                                                    }`}>
+                                                    {analysis.insights.performance_metrics.performance_consistency.volatility_level}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Efficiency Ratios */}
+                                {analysis.insights.performance_metrics.efficiency_ratios && (
+                                    <div className="p-4 rounded-lg border border-gray-200 md:col-span-2 lg:col-span-1">
+                                        <h4 className="font-semibold text-gray-800 mb-2">Efficiency Ratios</h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {Object.entries(analysis.insights.performance_metrics.efficiency_ratios).map(([ratio, value]) => (
+                                                <div key={ratio} className="text-center">
+                                                    <div className="text-lg font-bold text-blue-600">
+                                                        {ratio.includes('ratio') ? value : `₹${value}`}
+                                                    </div>
+                                                    <div className="text-xs text-gray-600">
+                                                        {ratio.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    {/* Monthly and Weekly Patterns */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Monthly Patterns */}
+                        {analysis?.insights?.seasonal_analysis?.monthly_patterns && (
+                            <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                    <FiBarChart2 className="w-5 h-5 text-[#3B82F6]" /> Monthly Sales Patterns
+                                </h3>
+                                <div className="h-[300px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={analysis.insights.seasonal_analysis.monthly_patterns.filter(m => m.transaction_count > 0)}
+                                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis dataKey="month" />
+                                            <YAxis />
+                                            <Tooltip formatter={(value, name) => [
+                                                name === 'total_sales' ? `₹${parseFloat(value).toLocaleString()}` :
+                                                    name === 'avg_sales' ? `₹${parseFloat(value).toLocaleString()}` : value,
+                                                name === 'total_sales' ? 'Total Sales' :
+                                                    name === 'avg_sales' ? 'Average Sales' : 'Transactions'
+                                            ]} />
+                                            <Legend />
+                                            <Bar dataKey="total_sales" fill={chartColors[0]} radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="transaction_count" fill={chartColors[1]} radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
                                 </div>
                             </div>
                         )}
 
-
-                         {/* Charts Grid */}
-                           {/* Sales by Region */}
-                        {analysis.insights.totals?.sales_by_region?.Region &&
-                         Array.isArray(analysis.insights.totals.sales_by_region.Region) &&
-                         Array.isArray(analysis.insights.totals.sales_by_region.Sales) &&
-                         analysis.insights.totals.sales_by_region.Region.length > 0 &&
-                         analysis.insights.totals.sales_by_region.Sales.length === analysis.insights.totals.sales_by_region.Region.length && (
-                            <div className="bg-white border border-gray-200 shadow-sm p-6" style={{ borderRadius: '2px' }}>
+                        {/* Weekly Patterns */}
+                        {analysis?.insights?.seasonal_analysis?.weekly_patterns && (
+                            <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                    <FiUsers className="w-5 h-5 text-[#3B82F6]" /> Sales by Region
+                                    <FiBarChart2 className="w-5 h-5 text-[#3B82F6]" /> Weekly Sales Patterns
                                 </h3>
                                 <div className="h-[300px] w-full">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <ComposedChart
-                                            data={analysis.insights.totals.sales_by_region.Region.map((region, index) => ({
-                                                name: region,
-                                                sales: analysis.insights.totals.sales_by_region.Sales[index],
-                                                trend: analysis.insights.totals.sales_by_region.Sales[index] * 0.8
-                                            }))}
+                                        <BarChart
+                                            data={analysis.insights.seasonal_analysis.weekly_patterns}
                                             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                                         >
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                            <XAxis dataKey="name" />
+                                            <XAxis dataKey="day" />
                                             <YAxis />
-                                            <Tooltip 
-                                                formatter={(value, name) => [
-                                                    `₹${value.toLocaleString()}`,
-                                                    name === 'sales' ? 'Sales' : 'Trend'
-                                                ]}
-                                                labelStyle={{ color: '#7400B8' }}
-                                                contentStyle={{
-                                                    backgroundColor: 'white',
-                                                    border: '1px solid #f0f0f0',
-                                                    borderRadius: '12px',
-                                                    padding: '12px',
-                                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                                                }}
-                                            />
+                                            <Tooltip formatter={(value, name) => [
+                                                name === 'total_sales' ? `₹${parseFloat(value).toLocaleString()}` :
+                                                    name === 'avg_sales' ? `₹${parseFloat(value).toLocaleString()}` : value,
+                                                name === 'total_sales' ? 'Total Sales' :
+                                                    name === 'avg_sales' ? 'Average Sales' : 'Transactions'
+                                            ]} />
                                             <Legend />
-                                            <Bar 
-                                                dataKey="sales" 
-                                                fill={chartColors[0]} 
-                                                radius={[8, 8, 0, 0]}
-                                                barSize={40}
-                                            >
-                                                {analysis.insights.totals.sales_by_region.Region.map((_, index) => (
-                                                    <Cell key={`cell-${index}`} fill={`rgba(59, 130, 246, ${0.3 + (index * 0.15)})`} />
-                                                ))}
-                                            </Bar>
-                                            <Line 
-                                                type="monotone" 
-                                                dataKey="trend" 
-                                                stroke={chartColors[1]} 
-                                                strokeWidth={3}
-                                                dot={{ fill: chartColors[1], strokeWidth: 2, r: 6 }}
-                                                activeDot={{ r: 10 }}
-                                            />
-                                        </ComposedChart>
-                                    </ResponsiveContainer>
-                                </div>
-                                                </div>
-                        )}
- {/* Sales by Region/Category */}
- {analysis.insights.totals?.sales_by_category &&
-                         Array.isArray(analysis.insights.totals.sales_by_category) &&
-                         analysis.insights.totals.sales_by_category.length >= 2 &&
-                         Array.isArray(analysis.insights.totals.sales_by_category[0]) &&
-                         Array.isArray(analysis.insights.totals.sales_by_category[1]) &&
-                         analysis.insights.totals.sales_by_category[0].length > 0 &&
-                         analysis.insights.totals.sales_by_category[0].length === analysis.insights.totals.sales_by_category[1].length && (
-                                <div className="bg-white border border-gray-200 shadow-sm p-6" style={{ borderRadius: '2px' }}>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                    <FiBarChart2 className="w-5 h-5 text-[#3B82F6]" />
-                                    Sales by Category
-                                    </h3>
-                                <div className="h-[300px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <ComposedChart
-                                            data={analysis.insights.totals.sales_by_category[0].map((category, index) => ({
-                                                name: category,
-                                                sales: analysis.insights.totals.sales_by_category[1][index],
-                                                trend: analysis.insights.totals.sales_by_category[1][index] * 0.8 + Math.random() * 0.4 * analysis.insights.totals.sales_by_category[1][index]
-                                            }))}
-                                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                                        >
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                            <XAxis dataKey="name" />
-                                            <YAxis />
-                                            <Tooltip 
-                                                formatter={(value) => [`₹${value.toLocaleString()}`, 'Sales']}
-                                                labelStyle={{ color: '#7400B8' }}
-                                                contentStyle={{
-                                                    backgroundColor: 'white',
-                                                    border: '1px solid #f0f0f0',
-                                                    borderRadius: '12px',
-                                                    padding: '12px',
-                                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                                                }}
-                                            />
-                                            <Legend />
-                                            <Bar 
-                                                dataKey="sales" 
-                                                fill={chartColors[0]} 
-                                                radius={[8, 8, 0, 0]}
-                                                barSize={40}
-                                            >
-                                                {analysis.insights.totals.sales_by_category[0].map((_, index) => (
-                                                    <Cell key={`cell-${index}`} fill={`rgba(59, 130, 246, ${0.3 + (index * 0.15)})`} />
-                                                ))}
-                                            </Bar>
-                                            <Line 
-                                                type="monotone" 
-                                                dataKey="trend" 
-                                                stroke={chartColors[1]} 
-                                                strokeWidth={3}
-                                                dot={{ fill: chartColors[1], strokeWidth: 2, r: 6 }}
-                                                activeDot={{ r: 10 }}
-                                            />
-                                        </ComposedChart>
-                                    </ResponsiveContainer>
-                                                </div>
-                                            </div>
-                        )}
-
-                        {/* Sales by Category - Pie Chart */}
-                        {analysis.insights.totals?.sales_by_category &&
-                         Array.isArray(analysis.insights.totals.sales_by_category) &&
-                         analysis.insights.totals.sales_by_category.length >= 2 &&
-                         Array.isArray(analysis.insights.totals.sales_by_category[0]) &&
-                         Array.isArray(analysis.insights.totals.sales_by_category[1]) &&
-                         analysis.insights.totals.sales_by_category[0].length > 0 &&
-                         analysis.insights.totals.sales_by_category[0].length === analysis.insights.totals.sales_by_category[1].length && (
-                            <div className="bg-white border border-gray-200 shadow-sm p-6" style={{ borderRadius: '2px' }}>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                    <FiBarChart2 className="w-5 h-5 text-[#3B82F6]" />
-                                    Sales Distribution by Category
-                                </h3>
-                                <div className="h-[300px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={analysis.insights.totals.sales_by_category[0].map((category, index) => ({
-                                                    name: category,
-                                                    value: analysis.insights.totals.sales_by_category[1][index]
-                                                }))}
-                                                dataKey="value"
-                                                nameKey="name"
-                                                cx="50%"
-                                                cy="50%"
-                                                outerRadius={120}
-                                                fill={chartColors[0]}
-                                                labelLine={false}
-                                                label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-                                                    const RADIAN = Math.PI / 180;
-                                                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                                                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                                                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-                                                    return (
-                                                        <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
-                                                            {`${(percent * 100).toFixed(0)}%`}
-                                                        </text>
-                                                    );
-                                                }}
-                                            >
-                                                {analysis.insights.totals.sales_by_category[0].map((entry, index) => (
+                                            <Bar dataKey="total_sales" fill={chartColors[2]} radius={[4, 4, 0, 0]}>
+                                                {analysis.insights.seasonal_analysis.weekly_patterns.map((_, index) => (
                                                     <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
                                                 ))}
-                                            </Pie>
-                                            <Tooltip 
-                                                formatter={(value, name) => [`₹${value.toLocaleString()}`, name]}
-                                                labelStyle={{ color: '#7400B8' }}
-                                                contentStyle={{
-                                                    backgroundColor: 'white',
-                                                    border: '1px solid #f0f0f0',
-                                                    borderRadius: '12px',
-                                                    padding: '12px',
-                                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                                                }}
-                                            />
-                                            <Legend />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                </div>
-            </div>
-                        )}
-
-                        {/* Sales Over Time */}
-                        {analysis.insights.trends?.sales_over_time?.Date &&
-                         Array.isArray(analysis.insights.trends.sales_over_time.Date) &&
-                         Array.isArray(analysis.insights.trends.sales_over_time.Sales) &&
-                         analysis.insights.trends.sales_over_time.Date.length > 0 &&
-                         analysis.insights.trends.sales_over_time.Sales.length === analysis.insights.trends.sales_over_time.Date.length && (
-                            <div className="bg-white border border-gray-200 shadow-sm p-6 xl:col-span-2" style={{ borderRadius: '2px' }}>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                    <FiShoppingCart className="w-5 h-5 text-[#3B82F6]" /> Sales Over Time
-                                </h3>
-                                {/* Scale/Zoom Controls */}
-                                {analysis.insights.trends.sales_over_time.Date.length > 30 && (
-                                    <div className="mb-4 flex gap-2 items-center">
-                                        <span className="text-sm font-medium text-gray-700">Show:</span>
-                                        <select value={trendWindow} onChange={e => setTrendWindow(e.target.value)} className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                                            <option value="7">Last 7 days</option>
-                                            <option value="30">Last 30 days</option>
-                                            <option value="90">Last 90 days</option>
-                                            <option value="all">All</option>
-                                        </select>
-                    </div>
-                                )}
-                                <div className="h-[350px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart
-                                            data={(() => {
-                                                const daily = analysis.insights.trends.daily;
-                                                // Helper to normalize to YYYY-MM-DD
-                                                const toYMD = (date) => {
-                                                    if (!date) return '';
-                                                    const d = new Date(date);
-                                                    if (isNaN(d)) return '';
-                                                    return d.toISOString().slice(0, 10);
-                                                };
-                                                if (trendWindow === 'custom' && (customRange.start || customRange.end)) {
-                                                    const startYMD = customRange.start;
-                                                    const endYMD = customRange.end;
-                                                    return daily.filter(d => {
-                                                        const dYMD = toYMD(d.date);
-                                                        if (!dYMD) return false;
-                                                        if (startYMD && endYMD) return dYMD >= startYMD && dYMD <= endYMD;
-                                                        if (startYMD) return dYMD >= startYMD;
-                                                        if (endYMD) return dYMD <= endYMD;
-                                                        return true;
-                                                    }).map(d => ({ ...d, date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }));
-                                                } else {
-                                                    let window = daily.length;
-                                                    if (trendWindow !== 'all') window = Math.min(daily.length, parseInt(trendWindow));
-                                                    const start = daily.length - window;
-                                                    return daily.slice(start).map(d => ({ ...d, date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }));
-                                                }
-                                            })()}
-                                            margin={{ top: 10, right: 30, left: 20, bottom: 0 }}
-                                        >
-                                            <defs>
-                                                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor={chartColors[0]} stopOpacity={0.8}/>
-                                                    <stop offset="95%" stopColor={chartColors[0]} stopOpacity={0}/>
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                            <XAxis dataKey="date" />
-                                            <YAxis />
-                                            <Tooltip 
-                                                formatter={(value) => [`₹${value.toLocaleString()}`, 'Sales']}
-                                                labelStyle={{ color: '#7400B8' }}
-                                                contentStyle={{
-                                                    backgroundColor: 'white',
-                                                    border: '1px solid #f0f0f0',
-                                                    borderRadius: '12px',
-                                                    padding: '12px',
-                                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                                                }}
-                                            />
-                                            <Area 
-                                                type="monotone" 
-                                                dataKey="sales" 
-                                                stroke={chartColors[0]} 
-                                                fill="url(#colorSales)" 
-                                                strokeWidth={3}
-                                            />
-                                        </AreaChart>
+                                            </Bar>
+                                        </BarChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
                         )}
-
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                      
-
-                       
-                    </div> {/* <-- CLOSE the charts grid here! */}
                     </div>
+                    {/* Risk Analysis */}
+                    {analysis?.insights?.risk_analysis && Object.keys(analysis.insights.risk_analysis).length > 0 && (
+                        <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <FiMessageSquare className="w-5 h-5 text-[#EF4444]" /> Risk Analysis
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {Object.entries(analysis.insights.risk_analysis).map(([riskType, riskData], index) => {
+                                    if (!riskData || typeof riskData !== 'object') return null;
 
-
-                    {/* --- Custom Visualizations for Insights --- */}
-                    {/* High Performers - Horizontal Bar Chart + List */}
-                    {highPerf && Array.isArray(highPerf) && highPerf.length > 0 && highPerf.some(prod => Object.values(prod).some(v => v !== undefined && v !== null && v !== 0 && v !== '')) && (
-                        <div className="bg-white border border-gray-200 shadow-sm p-6 flex flex-col lg:flex-row gap-8 items-start" style={{ borderRadius: '2px' }}>
-                            <div className="flex-1 min-w-[300px]">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                    <FiTrendingUp className="w-5 h-5 text-[#3B82F6]" /> High Performing Products
-                                </h3>
-                                <ResponsiveContainer width="100%" height={260}>
-                                    <BarChart data={highPerf} layout="vertical" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                        <XAxis type="number" />
-                                        {(() => {
-                                            const first = highPerf[0];
-                                            const stringKey = Object.keys(first).find(k => typeof first[k] === 'string');
-                                            return <YAxis dataKey={stringKey} type="category" width={120} />;
-                                        })()}
-                                        <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, 'Value']} />
-                                        <Legend />
-                                        {(() => {
-                                            const first = highPerf[0];
-                                            const numberKey = Object.keys(first).find(k => typeof first[k] === 'number');
-                                            return (
-                                                <Bar dataKey={numberKey} fill={chartColors[0]} radius={[0, 8, 8, 0]} barSize={28}>
-                                                    {highPerf.map((_, index) => (
-                                                        <Cell key={`cell-high-${index}`} fill={chartColors[index % chartColors.length]} />
-                                                    ))}
-                                                </Bar>
-                                            );
-                                        })()}
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="flex-1 min-w-[200px]">
-                                <h4 className="font-bold mb-2">Top Products</h4>
-                                <ul className="space-y-2">
-                                    {highPerf.map((prod, i) => {
-                                        const keys = Object.keys(prod);
-                                        const nameKey = keys.find(k => typeof prod[k] === 'string') || keys[0];
-                                        const valueKey = keys.find(k => typeof prod[k] === 'number');
-                                        return (
-                                            <li key={i} className="flex justify-between items-center bg-blue-50 rounded px-4 py-2">
-                                                <span className="text-gray-800">{prod[nameKey]}</span>
-                                                <span className="font-bold text-blue-700">
-                                                    {typeof prod[valueKey] === 'number'
-                                                        ? `₹${prod[valueKey].toLocaleString()}`
-                                                        : prod[valueKey] !== undefined
-                                                            ? String(prod[valueKey])
-                                                            : 'N/A'}
-                                                </span>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Low Performers - Horizontal Bar Chart + List */}
-                    {lowPerf && Array.isArray(lowPerf) && lowPerf.length > 0 && lowPerf.some(prod => Object.values(prod).some(v => v !== undefined && v !== null && v !== 0 && v !== '')) && (
-                        <div className="bg-white border border-gray-200 shadow-sm p-6 flex flex-col lg:flex-row gap-8 items-start" style={{ borderRadius: '2px' }}>
-                            <div className="flex-1 min-w-[300px]">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                    <FiTrendingUp className="w-5 h-5 text-[#3B82F6]" /> Low Performing Products
-                    </h3>
-                                <ResponsiveContainer width="100%" height={180}>
-                                    <BarChart data={lowPerf} layout="vertical" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                        <XAxis type="number" />
-                                        {(() => {
-                                            const first = lowPerf[0];
-                                            const stringKey = Object.keys(first).find(k => typeof first[k] === 'string');
-                                            return <YAxis dataKey={stringKey} type="category" width={120} />;
-                                        })()}
-                                        <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, 'Value']} />
-                                        <Legend />
-                                        {(() => {
-                                            const first = lowPerf[0];
-                                            const numberKey = Object.keys(first).find(k => typeof first[k] === 'number');
-                                            return (
-                                                <Bar dataKey={numberKey} fill={chartColors[1]} radius={[0, 8, 8, 0]} barSize={28}>
-                                                    {lowPerf.map((_, index) => (
-                                                        <Cell key={`cell-low-${index}`} fill={chartColors[index % chartColors.length]} />
-                                                    ))}
-                                                </Bar>
-                                            );
-                                        })()}
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="flex-1 min-w-[200px]">
-                                <h4 className="font-bold mb-2">Low Products</h4>
-                                <ul className="space-y-2">
-                                    {lowPerf.map((prod, i) => {
-                                        const keys = Object.keys(prod);
-                                        const nameKey = keys.find(k => typeof prod[k] === 'string') || keys[0];
-                                        const valueKey = keys.find(k => typeof prod[k] === 'number');
-                                        return (
-                                            <li key={i} className="flex justify-between items-center bg-blue-50 rounded px-4 py-2">
-                                                <span className="text-gray-800">{prod[nameKey]}</span>
-                                                <span className="font-bold text-blue-400">
-                                                    {typeof prod[valueKey] === 'number'
-                                                        ? `₹${prod[valueKey].toLocaleString()}`
-                                                        : prod[valueKey] !== undefined
-                                                            ? String(prod[valueKey])
-                                                            : 'N/A'}
-                                                </span>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </div>
-                        </div>
-                    )}
-
-                 
-
-                    
-                </motion.div>
-
-                {/* High/Low Performers and Hypotheses at the bottom as Insights */}
-                <div className="bg-white border border-gray-200 shadow-sm p-6 mt-8" style={{ borderRadius: '2px' }}>
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                            <FiCpu className="w-5 h-5 text-[#6366F1]" /> AI-Powered Insights & Hypotheses
-                        </h3>
-                        <button
-                            className="ml-4 px-4 py-2 bg-[#3B82F6] text-white rounded shadow hover:bg-[#1E40AF] transition"
-                            onClick={() => setShowSummary(s => !s)}
-                        >
-                            {showSummary ? 'Hide Summary' : 'Show Summary'}
-                        </button>
-                    </div>
-                    {showSummary && (
-                        analysis.summary ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                                {Object.entries(analysis.summary).map(([field, details]) => {
-                                    // Detect if this field is a percentage field
-                                    const isPercentField = field.toLowerCase().includes('%') || field.toLowerCase().includes('percent');
-                                    // Helper: check if object is a stats object (min, max, mean, median, stddev, etc.)
-                                    const isStatsObject = (obj) => {
-                                        if (!obj || typeof obj !== 'object') return false;
-                                        const statKeys = ['min', 'max', 'mean', 'median', 'stddev', 'count', 'sum'];
-                                        return statKeys.some(k => k in obj);
+                                    const getRiskColor = (level) => {
+                                        switch (level?.toLowerCase()) {
+                                            case 'high': return '#EF4444';
+                                            case 'medium': return '#F59E0B';
+                                            case 'low': return '#10B981';
+                                            default: return '#6B7280';
+                                        }
                                     };
-                                    // Helper: render stats object as a list
-                                    const renderStatsObject = (obj) => (
-                                        <ul className="text-sm space-y-1">
-                                            {Object.entries(obj).map(([k, v]) => (
-                                                <li key={k}>
-                                                    <span className="font-semibold">{k.toLowerCase() === 'count' ? 'Total Entries' : friendlyLabel(k)}:</span> {typeof v === 'number' ? round4(v) : String(v)}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    );
-                                    // Main rendering logic
+
                                     return (
-                                    <div key={field} className="bg-blue-50 rounded p-4 border border-blue-100">
-                                            <h4 className="font-bold mb-2">{friendlyLabel(field)}</h4>
-                                            {/* If details has a type, use existing logic */}
-                                            {details && typeof details === 'object' && 'type' in details && (
-                                                <>
-                                        {details.type === 'numeric' && (
-                                            <ul className="text-sm space-y-1">
-                                                            {Object.entries(details).map(([statKey, statValue]) => {
-                                                                if (statKey === 'type') return null;
-                                                                if (statKey.toLowerCase().includes('variation')) {
-                                                                    return (
-                                                                        <li key={statKey}><span className="font-semibold">{friendlyLabel(statKey)}:</span> {isPercentField ? `${round4(statValue)}%` : round4(statValue)}</li>
-                                                                    );
-                                                                }
-                                                                if (Array.isArray(statValue) && statValue.length > 0 && typeof statValue[0] === 'object') {
-                                                                    const columns = Object.keys(statValue[0]);
-                                                                    return (
-                                                                        <li key={statKey} className="mt-2">
-                                                                            <span className="font-semibold">{friendlyLabel(statKey)}:</span>
-                                                                            <div className="overflow-x-auto mt-1">
-                                                                                <table className="min-w-full text-xs border border-gray-200 rounded">
-                                                                                    <thead>
-                                                                                        <tr>
-                                                                                            {columns.map(col => (
-                                                                                                <th key={col} className="px-2 py-1 border-b text-left">{friendlyLabel(col)}</th>
-                                                                                            ))}
-                                                                                        </tr>
-                                                                                    </thead>
-                                                                                    <tbody>
-                                                                                        {statValue.map((row, i) => (
-                                                                                            <tr key={i}>
-                                                                                                {columns.map(col => (
-                                                                                                    <td key={col} className="px-2 py-1 border-b">{row[col]}</td>
-                                                                                                ))}
-                                                                                            </tr>
-                                                                                        ))}
-                                                                                    </tbody>
-                                                                                </table>
-                                                                            </div>
-                                                                        </li>
-                                                                    );
-                                                                }
-                                                                if (Array.isArray(statValue) && statValue.length > 0 && typeof statValue[0] !== 'object') {
-                                                                    return (
-                                                                        <li key={statKey} className="mt-2">
-                                                                            <span className="font-semibold">{friendlyLabel(statKey)}:</span>
-                                                                            <ul className="ml-2 list-disc list-inside">
-                                                                                {statValue.map((v, idx) => (
-                                                                                    <li key={idx}>{String(v)}</li>
-                                                                                ))}
-                                                                            </ul>
-                                                                        </li>
-                                                                    );
-                                                                }
-                                                                if (typeof statValue === 'object' && statValue !== null) {
-                                                                    return (
-                                                                        <li key={statKey} className="mt-2">
-                                                                            <span className="font-semibold">{friendlyLabel(statKey)}:</span>
-                                                                            <ul className="ml-2">
-                                                                                {Object.entries(statValue).map(([k, v]) => (
-                                                                                    <li key={k}><span className="font-semibold">{friendlyLabel(k)}:</span> {String(v)}</li>
-                                                                                ))}
-                                                                            </ul>
-                                                                        </li>
-                                                                    );
-                                                                }
-                                                                return (
-                                                                    <li key={statKey}><span className="font-semibold">{statKey.toLowerCase() === 'count' ? 'Total Entries' : friendlyLabel(statKey)}:</span> {String(statValue)}</li>
-                                                                );
-                                                            })}
-                                            </ul>
-                                        )}
-                                                    {details.type === 'boolean' && Array.isArray(details.counts) && (
-                                                        <div className="mt-2">
-                                                            <span className="font-semibold">Counts:</span>
-                                                            <div className="overflow-x-auto mt-1">
-                                                                <table className="min-w-full text-xs border border-gray-200 rounded">
-                                                        <thead>
-                                                            <tr>
-                                                                <th className="px-2 py-1 border-b text-left">Value</th>
-                                                                <th className="px-2 py-1 border-b text-left">Count</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                                        {details.counts.map((row, i) => (
-                                                                <tr key={i}>
-                                                                                <td className="px-2 py-1 border-b">{row.value === true ? 'Yes' : row.value === false ? 'No' : String(row.value)}</td>
-                                                                                <td className="px-2 py-1 border-b">{row.count}</td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                        <div key={riskType} className="p-4 rounded-lg border border-gray-200">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="font-semibold text-gray-800 text-sm">
+                                                    {riskType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                </h4>
+                                                <span
+                                                    className="px-2 py-1 rounded text-xs font-bold text-white"
+                                                    style={{ backgroundColor: getRiskColor(riskData.risk_level) }}
+                                                >
+                                                    {riskData.risk_level?.toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-gray-600">Risk Score</span>
+                                                    <span className="font-bold" style={{ color: getRiskColor(riskData.risk_level) }}>
+                                                        {riskData.risk_score}/100
+                                                    </span>
                                                 </div>
+                                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                                    <div
+                                                        className="h-2 rounded-full transition-all duration-300"
+                                                        style={{
+                                                            width: `${riskData.risk_score}%`,
+                                                            backgroundColor: getRiskColor(riskData.risk_level)
+                                                        }}
+                                                    ></div>
+                                                </div>
+                                                <p className="text-xs text-gray-600 mt-2">
+                                                    {riskData.recommendation}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    {/* Strategic Recommendations */}
+                    {analysis?.insights?.recommendations?.priority_actions && analysis.insights.recommendations.priority_actions.length > 0 && (
+                        <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <FiCpu className="w-5 h-5 text-[#6366F1]" /> Strategic Recommendations
+                            </h3>
+                            <div className="space-y-4">
+                                {analysis.insights.recommendations.priority_actions.map((recommendation, index) => {
+                                    const getImpactColor = (impact) => {
+                                        switch (impact?.toLowerCase()) {
+                                            case 'high': return '#EF4444';
+                                            case 'medium': return '#F59E0B';
+                                            case 'low': return '#10B981';
+                                            default: return '#6B7280';
+                                        }
+                                    };
+
+                                    const getEffortColor = (effort) => {
+                                        switch (effort?.toLowerCase()) {
+                                            case 'high': return '#EF4444';
+                                            case 'medium': return '#F59E0B';
+                                            case 'low': return '#10B981';
+                                            default: return '#6B7280';
+                                        }
+                                    };
+
+                                    return (
+                                        <div key={index} className="p-4 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="flex-1">
+                                                    <h4 className="font-semibold text-gray-800 mb-1">{recommendation.category}</h4>
+                                                    <p className="text-gray-700 text-sm">{recommendation.recommendation}</p>
+                                                </div>
+                                                <div className="flex gap-2 ml-4">
+                                                    <span
+                                                        className="px-2 py-1 rounded text-xs font-medium text-white"
+                                                        style={{ backgroundColor: getImpactColor(recommendation.impact) }}
+                                                    >
+                                                        {recommendation.impact} Impact
+                                                    </span>
+                                                    <span
+                                                        className="px-2 py-1 rounded text-xs font-medium text-white"
+                                                        style={{ backgroundColor: getEffortColor(recommendation.effort) }}
+                                                    >
+                                                        {recommendation.effort} Effort
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-600">Timeline: {recommendation.timeline}</span>
+                                                <span className="text-blue-600 font-medium">Priority #{index + 1}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    {/* Alerts */}
+                    {analysis?.insights?.alerts && analysis.insights.alerts.length > 0 && (
+                        <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <FiMessageSquare className="w-5 h-5 text-[#F59E0B]" /> System Alerts
+                            </h3>
+                            <div className="space-y-3">
+                                {analysis.insights.alerts.map((alert, index) => {
+                                    const getSeverityColor = (severity) => {
+                                        switch (severity?.toLowerCase()) {
+                                            case 'high': return '#EF4444';
+                                            case 'medium': return '#F59E0B';
+                                            case 'low': return '#10B981';
+                                            default: return '#6B7280';
+                                        }
+                                    };
+
+                                    return (
+                                        <div key={index} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200">
+                                            <div
+                                                className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
+                                                style={{ backgroundColor: getSeverityColor(alert.severity) }}
+                                            ></div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-medium text-gray-800">{alert.type}</span>
+                                                    <span
+                                                        className="px-2 py-0.5 rounded text-xs font-medium text-white"
+                                                        style={{ backgroundColor: getSeverityColor(alert.severity) }}
+                                                    >
+                                                        {alert.severity}
+                                                    </span>
+                                                </div>
+                                                <p className="text-gray-700 text-sm mb-1">{alert.message}</p>
+                                                <p className="text-blue-600 text-sm font-medium">Action: {alert.action}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    {/* Outliers and Correlations */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Outliers */}
+                        {analysis?.insights?.outliers && Object.keys(analysis.insights.outliers).some(key => analysis.insights.outliers[key] && analysis.insights.outliers[key].outlier_count > 0) && (
+                            <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                    <FiBarChart2 className="w-5 h-5 text-[#EF4444]" /> Outlier Detection
+                                </h3>
+                                <div className="space-y-4">
+                                    {Object.entries(analysis.insights.outliers).map(([type, outlierData]) => {
+                                        if (!outlierData || outlierData.outlier_count === 0) return null;
+
+                                        return (
+                                            <div key={type} className="p-3 rounded-lg border border-gray-200">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h4 className="font-semibold text-gray-800 capitalize">
+                                                        {type.replace(/_/g, ' ')}
+                                                    </h4>
+                                                    <span className="px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
+                                                        {outlierData.outlier_count} outliers ({outlierData.outlier_percentage}%)
+                                                    </span>
+                                                </div>
+                                                <div className="text-sm text-gray-600">
+                                                    <div>Method: {outlierData.detection_method}</div>
+                                                    <div>Range: {outlierData.lower_bound} - {outlierData.upper_bound}</div>
+                                                    {outlierData.outlier_values && outlierData.outlier_values.length > 0 && (
+                                                        <div className="mt-2">
+                                                            <span className="font-medium">Sample values: </span>
+                                                            {outlierData.outlier_values.slice(0, 3).map(val =>
+                                                                typeof val === 'number' ? val.toFixed(2) : val
+                                                            ).join(', ')}
+                                                            {outlierData.outlier_values.length > 3 && '...'}
                                                         </div>
                                                     )}
-                                                    {details.type === 'categorical' && (
-                                                        <ul className="text-sm space-y-1">
-                                                            {Object.entries(details).filter(([statKey]) => statKey !== 'type').map(([statKey, statValue]) => {
-                                                                if (Array.isArray(statValue) && statValue.length > 0 && typeof statValue[0] === 'object') {
-                                                                    const columns = Object.keys(statValue[0]);
-                                                                    return (
-                                                                        <li key={statKey} className="mt-2">
-                                                                            <span className="font-semibold">{friendlyLabel(statKey)}:</span>
-                                                                            <div className="overflow-x-auto mt-1">
-                                                                                <table className="min-w-full text-xs border border-gray-200 rounded">
-                                                    <thead>
-                                                        <tr>
-                                                                                            {columns.map(col => (
-                                                                                                <th key={col} className="px-2 py-1 border-b text-left">{friendlyLabel(col)}</th>
-                                                                                            ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                                                        {statValue.map((row, i) => (
-                                                            <tr key={i}>
-                                                                                                {columns.map(col => (
-                                                                                                    <td key={col} className="px-2 py-1 border-b">{row[col]}</td>
-                                                                                                ))}
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
+                                                </div>
                                             </div>
-                                                                        </li>
-                                                                    );
-                                                                }
-                                                                if (Array.isArray(statValue) && statValue.length > 0 && typeof statValue[0] !== 'object') {
-                                                                    return (
-                                                                        <li key={statKey} className="mt-2">
-                                                                            <span className="font-semibold">{friendlyLabel(statKey)}:</span>
-                                                                            <ul className="ml-2 list-disc list-inside">
-                                                                                {statValue.map((v, idx) => (
-                                                                                    <li key={idx}>{String(v)}</li>
-                                                                                ))}
-                                                                            </ul>
-                                                                        </li>
-                                                                    );
-                                                                }
-                                                                if (typeof statValue === 'object' && statValue !== null) {
-                                                                    return (
-                                                                        <li key={statKey} className="mt-2">
-                                                                            <span className="font-semibold">{friendlyLabel(statKey)}:</span>
-                                                                            <ul className="ml-2">
-                                                                                {Object.entries(statValue).map(([k, v]) => (
-                                                                                    <li key={k}><span className="font-semibold">{friendlyLabel(k)}:</span> {String(v)}</li>
-                                                                                ))}
-                                                                            </ul>
-                                                                        </li>
-                                                                    );
-                                                                }
-                                                                return (
-                                                                    <li key={statKey}><span className="font-semibold">{statKey.toLowerCase() === 'count' ? 'Total Entries' : friendlyLabel(statKey)}:</span> {String(statValue)}</li>
-                                                                );
-                                                            })}
-                                                        </ul>
-                                                    )}
-                                                </>
-                                            )}
-                                            {/* If details is a stats object (min, max, mean, etc.) but no type */}
-                                            {details && typeof details === 'object' && !('type' in details) && isStatsObject(details) && renderStatsObject(details)}
-                                            {/* If details is an array of objects */}
-                                            {Array.isArray(details) && details.length > 0 && typeof details[0] === 'object' && (() => {
-                                                const columns = Object.keys(details[0]);
-                                                return (
-                                                    <div className="overflow-x-auto mt-1">
-                                                        <table className="min-w-full text-xs border border-gray-200 rounded">
-                                                            <thead>
-                                                                <tr>
-                                                                    {columns.map(col => (
-                                                                        <th key={col} className="px-2 py-1 border-b text-left">{friendlyLabel(col)}</th>
-                                                                    ))}
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {details.map((row, i) => (
-                                                                    <tr key={i}>
-                                                                        {columns.map(col => (
-                                                                            <td key={col} className="px-2 py-1 border-b">{row[col]}</td>
-                                                                        ))}
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
-                                    </div>
-                                                );
-                                            })()}
-                                            {/* If details is an array of primitives */}
-                                            {Array.isArray(details) && details.length > 0 && typeof details[0] !== 'object' && (
-                                                <ul className="ml-2 list-disc list-inside">
-                                                    {details.map((v, idx) => (
-                                                        <li key={idx}>{String(v)}</li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                            {/* If details is a plain object (fallback) */}
-                                            {details && typeof details === 'object' && !('type' in details) && !isStatsObject(details) && (
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Correlations */}
+                        {analysis?.insights?.correlations && Object.keys(analysis.insights.correlations).length > 0 && (
+                            <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                    <FiTrendingUp className="w-5 h-5 text-[#10B981]" /> Correlation Analysis
+                                </h3>
+                                <div className="space-y-3">
+                                    {Object.entries(analysis.insights.correlations).map(([pair, corrData]) => {
+                                        const getCorrelationColor = (strength) => {
+                                            switch (strength?.toLowerCase()) {
+                                                case 'strong': return '#10B981';
+                                                case 'moderate': return '#F59E0B';
+                                                case 'weak': return '#6B7280';
+                                                default: return '#6B7280';
+                                            }
+                                        };
+
+                                        const correlation = typeof corrData === 'object' ? corrData.correlation : corrData;
+                                        const strength = typeof corrData === 'object' ? corrData.strength : 'Unknown';
+                                        const direction = typeof corrData === 'object' ? corrData.direction : (parseFloat(correlation) >= 0 ? 'Positive' : 'Negative');
+
+                                        return (
+                                            <div key={pair} className="p-3 rounded-lg border border-gray-200">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h4 className="font-medium text-gray-800 text-sm">
+                                                        {pair.replace(/_vs_/g, ' vs ').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                    </h4>
+                                                    <div className="flex items-center gap-2">
+                                                        <span
+                                                            className="px-2 py-1 rounded text-xs font-medium text-white"
+                                                            style={{ backgroundColor: getCorrelationColor(strength) }}
+                                                        >
+                                                            {strength}
+                                                        </span>
+                                                        <span className={`text-sm font-bold ${direction === 'Positive' ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {direction}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-gray-600">Correlation</span>
+                                                    <span className="font-bold text-gray-900">{correlation}</span>
+                                                </div>
+                                                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                                    <div
+                                                        className="h-2 rounded-full transition-all duration-300"
+                                                        style={{
+                                                            width: `${Math.abs(parseFloat(correlation)) * 100}%`,
+                                                            backgroundColor: getCorrelationColor(strength)
+                                                        }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    {/* Summary and Insights Section */}
+                    <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                <FiCpu className="w-5 h-5 text-[#6366F1]" /> AI-Powered Insights & Summary
+                            </h3>
+                            <button
+                                className="px-4 py-2 bg-[#3B82F6] text-white rounded shadow hover:bg-[#1E40AF] transition"
+                                onClick={() => setShowSummary(s => !s)}
+                            >
+                                {showSummary ? 'Hide Summary' : 'Show Summary'}
+                            </button>
+                        </div>
+
+                        {showSummary && analysis?.summary && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                                {Object.entries(analysis.summary).map(([field, details]) => {
+                                    const friendlyLabel = (key) => {
+                                        return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                    };
+
+                                    return (
+                                        <div key={field} className="bg-blue-50 rounded p-4 border border-blue-100">
+                                            <h4 className="font-bold mb-2">{friendlyLabel(field)}</h4>
+                                            {details && typeof details === 'object' && details.type === 'numeric' && (
                                                 <ul className="text-sm space-y-1">
-                                                    {Object.entries(details).map(([k, v]) => (
-                                                        <li key={k}><span className="font-semibold">{friendlyLabel(k)}:</span> {String(v)}</li>
-                                                    ))}
+                                                    <li><span className="font-semibold">Count:</span> {formatValue(details.count, 'number')}</li>
+                                                    <li><span className="font-semibold">Min:</span> {formatValue(details.min)}</li>
+                                                    <li><span className="font-semibold">Max:</span> {formatValue(details.max)}</li>
+                                                    <li><span className="font-semibold">Mean:</span> {formatValue(details.mean)}</li>
+                                                    <li><span className="font-semibold">Median:</span> {formatValue(details.median)}</li>
                                                 </ul>
                                             )}
-                                            {/* If details is a primitive */}
-                                            {(!details || typeof details !== 'object') && (
-                                                <div className="text-sm">{String(details)}</div>
+                                            {details && typeof details === 'object' && details.type === 'categorical' && (
+                                                <div>
+                                                    <p className="text-sm mb-2"><span className="font-semibold">Unique values:</span> {details.unique_count || 'N/A'}</p>
+                                                    {details.top_values && Array.isArray(details.top_values) && (
+                                                        <div>
+                                                            <p className="text-sm font-semibold mb-1">Top values:</p>
+                                                            <ul className="text-xs space-y-1">
+                                                                {details.top_values.slice(0, 3).map((item, i) => (
+                                                                    <li key={i}>{safeGet(item, 'value', 'Unknown')}: {safeGet(item, 'count', 0)}</li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
-                                            {/* If details is empty or missing */}
-                                            {(!details || (typeof details === 'object' && Object.keys(details).length === 0)) && (
-                                                <div className="text-gray-500 text-sm">No data available.</div>
+                                            {(!details || typeof details !== 'object' || (!details.type)) && (
+                                                <div className="text-sm text-gray-600">
+                                                    {typeof details === 'object' ? JSON.stringify(details, null, 2) : String(details || 'N/A')}
+                                                </div>
                                             )}
                                         </div>
                                     );
                                 })}
                             </div>
-                        ) : (
-                            <div className="text-gray-500">No summary available.</div>
-                        )
-                    )}
-                    {analysis.insights.hypothesis && Array.isArray(analysis.insights.hypothesis) && analysis.insights.hypothesis.length > 0 && (
-                        <div className="mt-4">
-                            <h4 className="font-bold text-gray-900 mb-2">Hypotheses:</h4>
-                            <ul className="list-disc list-inside text-gray-700">
-                                {analysis.insights.hypothesis.map((h, i) => <li key={i}>{h}</li>)}
-                            </ul>
-                        </div>
-                    )}
-                </div>
+                        )}
+
+                        {analysis?.insights?.hypothesis && Array.isArray(analysis.insights.hypothesis) && analysis.insights.hypothesis.length > 0 && (
+                            <div className="mt-4">
+                                <h4 className="font-bold text-gray-900 mb-2">AI Hypotheses:</h4>
+                                <ul className="list-disc list-inside text-gray-700">
+                                    {analysis.insights.hypothesis.map((h, i) => <li key={i}>{h}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+
+                </motion.div>
             </div>
         </div>
     );
 };
 
-export default RetailDashboard; 
+export default RetailDashboard;

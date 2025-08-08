@@ -1,0 +1,545 @@
+{ alysis: {summary: {…
+        }, insights: {…
+        },
+    }insights: advanced_kpis: analysis_period_days: 182avg_items_per_transaction: "3.44"avg_profit_per_transaction: "3510.01"daily_avg_sales: "12053.77"estimated_growth_rate_percent: "-0.10"profit_per_item: "1018.87"profitable_transaction_rate: "100.00"profitable_transactions: 200revenue_concentration_top_10_percent: "23.62"revenue_concentration_top_20_percent: "41.21"sales_25th_percentile: "4840.57"sales_75th_percentile: "15276.42"sales_90th_percentile: "21435.00"sales_coefficient_of_variation: "66.36"sales_max: "31821.30"sales_min: "943.22"sales_range: "30878.08"sales_std_dev: "7278.46"sales_variance: "52976049.12"total_items_sold: 689total_transactions: 200[
+        [Prototype
+        ]
+    ]: Objectalerts: Array(1)0: action: "Review inventory levels and product mix"message: "Low inventory turnover detected"severity: "Medium"type: "Inventory"[
+        [Prototype
+        ]
+    ]: Objectlength: 1[
+        [Prototype
+        ]
+    ]: Array(0)benchmarks: industry_comparison: customer_retention_benchmark: "80-90%"inventory_turnover_benchmark: "4-12x annually"note: "Benchmarks vary by industry and business model"profit_margin_benchmark: "15-25%"[
+        [Prototype
+        ]
+    ]: Objectinternal_benchmarks: consistency_target: "CV < 30%"growth_target: "10-20% annually"median_performance: 9154.994999999999top_quartile_sales: "15276.42"[
+        [Prototype
+        ]
+    ]: Object[
+        [Prototype
+        ]
+    ]: Objectchannel_analysis: [
+        [Prototype
+        ]
+    ]: Objectcorrelations: profit_vs_quantity: correlation: "0.6590"direction: "Positive"strength: "Moderate"[
+        [Prototype
+        ]
+    ]: Objectprofit_vs_unitPrice: correlation: "0.5595"direction: "Positive"strength: "Moderate"[
+        [Prototype
+        ]
+    ]: Objectquantity_vs_unitPrice: correlation: "-0.0217"direction: "Negative"strength: "Weak"[
+        [Prototype
+        ]
+    ]: Objectsales_vs_profit: correlation: "0.9346"direction: "Positive"strength: "Strong"[
+        [Prototype
+        ]
+    ]: Objectsales_vs_quantity: correlation: "0.7034"direction: "Positive"strength: "Strong"[
+        [Prototype
+        ]
+    ]: Objectsales_vs_unitPrice: correlation: "0.6173"direction: "Positive"strength: "Moderate"[
+        [Prototype
+        ]
+    ]: Object[
+        [Prototype
+        ]
+    ]: Objectcustomer: frequent_customers: Array(5)0: customer: "Sean Romero"purchases: 1[
+        [Prototype
+        ]
+    ]: Object1: customer: "Kristine Kelly"purchases: 1[
+        [Prototype
+        ]
+    ]: Object2: customer: "Susan Vega"purchases: 1[
+        [Prototype
+        ]
+    ]: Object3: customer: "Stephen Hernandez"purchases: 1[
+        [Prototype
+        ]
+    ]: Object4: customer: "Joseph Dodson"purchases: 1[
+        [Prototype
+        ]
+    ]: Objectlength: 5[
+        [Prototype
+        ]
+    ]: Array(0)[
+        [Prototype
+        ]
+    ]: Objectcustomer_segments: churn_risk_analysis: at_risk_customers: Array(0)length: 0[
+        [Prototype
+        ]
+    ]: Array(0)churn_risk_summary: high_risk: 0medium_risk: 0total_at_risk_value: "0.00"[
+        [Prototype
+        ]
+    ]: Object[
+        [Prototype
+        ]
+    ]: Objectcustomer_behavior_patterns: avg_order_value_across_customers: "10968.93"avg_transactions_per_customer: "1.00"consistent_customers: 0high_value_customers: 36repeat_customer_rate: "0.00"repeat_customers: 0single_purchase_customers: 200[
+        [Prototype
+        ]
+    ]: Objectcustomer_distribution: pareto_analysis: top_20_percent_customers: 40top_20_percent_revenue_share: "41.21"[
+        [Prototype
+        ]
+    ]: Objectsales_distribution: avg: "10968.93"max: "31821.30"median: "9154.99"min: "943.22"[
+        [Prototype
+        ]
+    ]: Objecttotal_customers: 200transaction_distribution: avg: "1.00"max: 1median: "1.00"min: 1[
+        [Prototype
+        ]
+    ]: Object[
+        [Prototype
+        ]
+    ]: Objectcustomer_lifetime_value: avg_customer_ltv: "21937.85"top_value_customers: Array(10)0: avg_order_value: "31821.30"current_value: "31821.30"customer_id: "David Carroll"estimated_lifetime_profit: "27139.82"estimated_ltv: "63642.60"transaction_count: 1[
+        [Prototype
+        ]
+    ]: Object1: avg_order_value: "31118.12"current_value: "31118.12"customer_id: "Joseph Brown"estimated_lifetime_profit: "15026.40"estimated_ltv: "62236.24"transaction_count: 1[
+        [Prototype
+        ]
+    ]: Object2: avg_order_value: "30481.04"current_value: "30481.04"customer_id: "Justin Robles"estimated_lifetime_profit: "20231.38"estimated_ltv: "60962.08"transaction_count: 1[
+        [Prototype
+        ]
+    ]: Object3: avg_order_value: "30005.05"current_value: "30005.05"customer_id: "Riley Gonzalez"estimated_lifetime_profit: "17993.76"estimated_ltv: "60010.10"transaction_count: 1[
+        [Prototype
+        ]
+    ]: Object4: avg_order_value: "28669.29"current_value: "28669.29"customer_id: "Andrew Page"estimated_lifetime_profit: "23789.66"estimated_ltv: "57338.58"transaction_count: 1[
+        [Prototype
+        ]
+    ]: Object5: avg_order_value: "28427.28"current_value: "28427.28"customer_id: "Bryan Morgan"estimated_lifetime_profit: "25533.82"estimated_ltv: "56854.56"transaction_count: 1[
+        [Prototype
+        ]
+    ]: Object6: avg_order_value: "27899.96"current_value: "27899.96"customer_id: "Stephen Hernandez"estimated_lifetime_profit: "24365.46"estimated_ltv: "55799.92"transaction_count: 1[
+        [Prototype
+        ]
+    ]: Object7: avg_order_value: "27125.42"current_value: "27125.42"customer_id: "Lawrence Anderson"estimated_lifetime_profit: "20364.36"estimated_ltv: "54250.84"transaction_count: 1[
+        [Prototype
+        ]
+    ]: Object8: {customer_id: 'William Ortiz', current_value: '26494.35', estimated_ltv: '52988.70', estimated_lifetime_profit: '14514.66', avg_order_value: '26494.35', …
+    }9: {customer_id: 'Charles Holland', current_value: '26200.40', estimated_ltv: '52400.80', estimated_lifetime_profit: '15020.70', avg_order_value: '26200.40', …
+    }length: 10[
+        [Prototype
+        ]
+    ]: Array(0)total_estimated_portfolio_value: "4387570.88"[
+        [Prototype
+        ]
+    ]: Objectrfm_analysis: {customer_rfm_scores: Array(10), segment_summary: {…
+        }, total_customers_analyzed: 200
+    }[
+        [Prototype
+        ]
+    ]: Objectdata_quality: {column_detection_confidence: {…
+        }, overall_score: 100, grade: 'A', total_records: 200, issues: Array(0), …
+    }column_detection_confidence: {quantity: {…
+        }, unitPrice: {…
+        }, sales: {…
+        }, profit: {…
+        }, cost: {…
+        }, …
+    }category: {column: 'Brand', confidence: 100, detected: true
+    }cost: {column: 'Unit Price', confidence: 40, detected: false
+    }customer: {column: 'Customer Name', confidence: 100, detected: true
+    }date: {column: 'Order Date', confidence: 100, detected: true
+    }loss: {column: 'Profit', confidence: 70, detected: true
+    }profit: {column: 'Profit', confidence: 100, detected: true
+    }promotionFlag: {column: 'Discount (%)', confidence: 100, detected: true
+    }quantity: {column: 'Units Sold', confidence: 100, detected: true
+    }region: {column: 'Sales Channel', confidence: 100, detected: true
+    }returnFlag: {column: 'Revenue', confidence: 37.5, detected: false
+    }sales: {column: 'Revenue', confidence: 100, detected: true
+    }size: {column: 'Profit', confidence: 80, detected: true
+    }unitPrice: {column: 'Unit Price', confidence: 100, detected: true
+    }[
+        [Prototype
+        ]
+    ]: Objectgrade: "A"issues: []metrics: {sales_completeness: '100.00%', date_completeness: '100.00%', category_completeness: '100.00%', customer_completeness: '100.00%', date_range_days: 182, …
+    }overall_score: 100recommendations: []total_records: 200[
+        [Prototype
+        ]
+    ]: Objectforecasting: confidence_intervals: base_confidence: "75%"confidence_note: "Confidence decreases with forecast horizon"volatility_adjustment: "High"[
+        [Prototype
+        ]
+    ]: Objectforecast_accuracy_metrics: mae: "Not available - requires historical forecasts"mape: "Not available - requires historical forecasts"rmse: "Not available - requires historical forecasts"[
+        [Prototype
+        ]
+    ]: Objectseasonal_forecast: methodology: "Seasonal Decomposition"next_month_forecast: "Requires more historical data"seasonal_adjustment_factor: 1[
+        [Prototype
+        ]
+    ]: Objecttrend_forecast: avg_growth_rate: "70.11%"forecasts: Array(7)0: confidence: 0.85forecast_value: "37179.05"period: 1[
+        [Prototype
+        ]
+    ]: Object1: {period: 2, forecast_value: '63243.97', confidence: 0.8
+    }2: {period: 3, forecast_value: '107582.08', confidence: 0.75
+    }3: {period: 4, forecast_value: '183004.07', confidence: 0.7
+    }4: {period: 5, forecast_value: '311301.76', confidence: 0.65
+    }5: {period: 6, forecast_value: '529544.42', confidence: 0.6
+    }6: {period: 7, forecast_value: '900789.31', confidence: 0.55
+    }length: 7[
+        [Prototype
+        ]
+    ]: Array(0)methodology: "Exponential Growth"[
+        [Prototype
+        ]
+    ]: Object[
+        [Prototype
+        ]
+    ]: ObjecthighPerformers: top_products: Array(5)0: Brand: "UrbanWalk"Revenue: 541395.85[
+        [Prototype
+        ]
+    ]: Object1: {Brand: 'StepUp', Revenue: 472726.44
+    }2: {Brand: 'SoleMate', Revenue: 435286.23
+    }3: {Brand: 'RunTrue', Revenue: 402859.29
+    }4: {Brand: 'TrackFlex', Revenue: 341517.63
+    }length: 5[
+        [Prototype
+        ]
+    ]: Array(0)[
+        [Prototype
+        ]
+    ]: Objecthypothesis: Array(1)0: "Category \"UrbanWalk\" is outperforming \"SoleMate\". Consider shifting inventory."length: 1[
+        [Prototype
+        ]
+    ]: Array(0)inventory: turnover_rate: "0.00"[
+        [Prototype
+        ]
+    ]: Objectkpis: avg_order_value: "10968.93"avg_sales: 10968.927199999995median_sales: 9154.994999999999profit_margin_percent: "32.01"sales_forecast_next_period: "11026.94"total_loss: 702001.9299999998total_profit: 702001.9299999998total_sales: 2193785.439999999[
+        [Prototype
+        ]
+    ]: ObjectlowPerformers: low_products: Array(3)0: Brand: "SoleMate"Revenue: 435286.23[
+        [Prototype
+        ]
+    ]: Object1: {Brand: 'RunTrue', Revenue: 402859.29
+    }2: {Brand: 'TrackFlex', Revenue: 341517.63
+    }length: 3[
+        [Prototype
+        ]
+    ]: Array(0)[
+        [Prototype
+        ]
+    ]: Objectoutliers: profit_outliers: detection_method: "IQR Method"lower_bound: "-3529.68"outlier_count: 6outlier_percentage: "3.00"outlier_values: (6) [
+        12182.73,
+        12766.91,
+        10182.18,
+        11894.83,
+        13569.91,
+        10115.69
+    ]0: 12182.731: 12766.912: 10182.183: 11894.834: 13569.915: 10115.69length: 6[
+        [Prototype
+        ]
+    ]: Array(0)upper_bound: "9956.66"[
+        [Prototype
+        ]
+    ]: Objectquantity_outliers: detection_method: "IQR Method"lower_bound: "-2.50"outlier_count: 0outlier_percentage: "0.00"outlier_values: []upper_bound: "9.50"[
+        [Prototype
+        ]
+    ]: Objectsales_outliers: {outlier_count: 2, outlier_percentage: '1.00', outlier_values: Array(2), detection_method: 'IQR Method', lower_bound: '-10813.20', …
+    }[
+        [Prototype
+        ]
+    ]: Objectperformance_metrics: efficiency_ratios: {profit_to_sales_ratio: '0.3200', sales_to_cost_ratio: '3.0868', revenue_per_unit: '3184.01', profit_per_unit: '1018.87'
+    }performance_consistency: {consistency_score: '33.64', volatility_level: 'High'
+    }sales_velocity: {sales_per_day: '12053.77', transactions_per_day: '1.10'
+    }seasonal_index: {
+        1: '1.01',
+        2: '0.98',
+        3: '0.97',
+        4: '0.96',
+        5: '0.96',
+        6: '1.09',
+        7: '1.03'
+    }transaction_frequency: active_days: 128avg_transactions_per_active_day: "1.56"max_transactions_per_day: 4[
+        [Prototype
+        ]
+    ]: Object[
+        [Prototype
+        ]
+    ]: Objectproduct_analysis: category_metrics: RunTrue: avg_quantity_per_transaction: "3.46"avg_sales_per_transaction: "11510.27"profit_margin: "30.54"sales_consistency: "Low"total_profit: "123041.05"total_quantity: 121total_sales: "402859.29"transaction_count: 35[
+        [Prototype
+        ]
+    ]: ObjectSoleMate: avg_quantity_per_transaction: "3.71"avg_sales_per_transaction: "12436.75"profit_margin: "34.48"sales_consistency: "Low"total_profit: "150075.17"total_quantity: 130total_sales: "435286.23"transaction_count: 35[
+        [Prototype
+        ]
+    ]: ObjectStepUp: avg_quantity_per_transaction: "3.56"avg_sales_per_transaction: "11529.91"profit_margin: "31.63"sales_consistency: "Low"total_profit: "149533.18"total_quantity: 146total_sales: "472726.44"transaction_count: 41[
+        [Prototype
+        ]
+    ]: ObjectTrackFlex: avg_quantity_per_transaction: "3.35"avg_sales_per_transaction: "10044.64"profit_margin: "31.42"sales_consistency: "Low"total_profit: "107294.48"total_quantity: 114total_sales: "341517.63"transaction_count: 34[
+        [Prototype
+        ]
+    ]: ObjectUrbanWalk: avg_quantity_per_transaction: "3.24"avg_sales_per_transaction: "9843.56"profit_margin: "31.78"sales_consistency: "Low"total_profit: "172058.05"total_quantity: 178total_sales: "541395.85"transaction_count: 55[
+        [Prototype
+        ]
+    ]: Object[
+        [Prototype
+        ]
+    ]: Objectcategory_performance: Array(5)0: Brand: "UrbanWalk"Revenue: 541395.85[
+        [Prototype
+        ]
+    ]: Object1: {Brand: 'StepUp', Revenue: 472726.44
+    }2: {Brand: 'SoleMate', Revenue: 435286.23
+    }3: {Brand: 'RunTrue', Revenue: 402859.29
+    }4: {Brand: 'TrackFlex', Revenue: 341517.63
+    }length: 5[
+        [Prototype
+        ]
+    ]: Array(0)product_diversity: category_concentration: herfindahl_index: "2047"top_3_categories_share: "66.07"top_category_share: "24.68"[
+        [Prototype
+        ]
+    ]: Objectperformance_spread: {performance_ratio: '1.59', performance_gap: '199878.22', coefficient_of_variation: '15.27'
+    }total_categories: 5[
+        [Prototype
+        ]
+    ]: Objectsize_performance: Array(200)[
+        0 … 99
+    ]0: {Profit: '13569.91', Revenue: 31821.3
+    }1: {Profit: '7513.2', Revenue: 31118.12
+    }2: {Profit: '10115.69', Revenue: 30481.04
+    }3: {Profit: '8996.88', Revenue: 30005.05
+    }4: {Profit: '11894.83', Revenue: 28669.29
+    }5: {Profit: '12766.91', Revenue: 28427.28
+    }6: {Profit: '12182.73', Revenue: 27899.96
+    }7: {Profit: '10182.18', Revenue: 27125.42
+    }8: {Profit: '7257.33', Revenue: 26494.35
+    }9: {Profit: '7510.35', Revenue: 26200.4
+    }10: {Profit: '6017.81', Revenue: 24887.66
+    }11: {Profit: '5050.06', Revenue: 23542.16
+    }12: {Profit: '6849.36', Revenue: 23470.13
+    }13: {Profit: '7829.1', Revenue: 23159.67
+    }14: {Profit: '7170.41', Revenue: 23128.19
+    }15: {Profit: '5899.01', Revenue: 22657.63
+    }16: {Profit: '7413.61', Revenue: 22471.57
+    }17: {Profit: '8053.26', Revenue: 22378.81
+    }18: {Profit: '8809.49', Revenue: 22195.88
+    }19: {Profit: '7365.07', Revenue: 22040.29
+    }20: {Profit: '8758.47', Revenue: 21367.75
+    }21: {Profit: '6339.77', Revenue: 21342.09
+    }22: {Profit: '4245.28', Revenue: 20925.12
+    }23: {Profit: '7497.27', Revenue: 20854.54
+    }24: {Profit: '5271.2', Revenue: 20714.4
+    }25: {Profit: '5625.44', Revenue: 20713.4
+    }26: {Profit: '6229.47', Revenue: 20392.42
+    }27: {Profit: '5029.5', Revenue: 20286.94
+    }28: {Profit: '7753.09', Revenue: 20179.84
+    }29: {Profit: '4056.36', Revenue: 19209.46
+    }30: {Profit: '5784.89', Revenue: 18931.28
+    }31: {Profit: '7590.63', Revenue: 18837.91
+    }32: {Profit: '6585.29', Revenue: 18835.31
+    }33: {Profit: '5617.24', Revenue: 18395.39
+    }34: {Profit: '4082.16', Revenue: 18321.48
+    }35: {Profit: '5279.42', Revenue: 17567.87
+    }36: {Profit: '7777.68', Revenue: 17536.66
+    }37: {Profit: '5952.1', Revenue: 17376.23
+    }38: {Profit: '4648.6', Revenue: 17229.98
+    }39: {Profit: '3470.91', Revenue: 16895.68
+    }40: {Profit: '4892.97', Revenue: 16860.9
+    }41: {Profit: '3729.52', Revenue: 16827.12
+    }42: {Profit: '4690.37', Revenue: 16683.24
+    }43: {Profit: '6688.22', Revenue: 16388.26
+    }44: {Profit: '5029.27', Revenue: 16320.78
+    }45: {Profit: '5999.53', Revenue: 16068.28
+    }46: {Profit: '4093.85', Revenue: 15742.86
+    }47: {Profit: '6258.32', Revenue: 15707.22
+    }48: {Profit: '5204.11', Revenue: 15474.24
+    }49: {Profit: '4006.78', Revenue: 15450.02
+    }50: {Profit: '6103.26', Revenue: 15218.55
+    }51: {Profit: '3194.08', Revenue: 15204.81
+    }52: {Profit: '5102.97', Revenue: 15197.97
+    }53: {Profit: '5319.74', Revenue: 15171.78
+    }54: {Profit: '6009.94', Revenue: 15138.46
+    }55: {Profit: '6036.35', Revenue: 15084.72
+    }56: {Profit: '6492.1', Revenue: 15020.24
+    }57: {Profit: '3994.95', Revenue: 14783.98
+    }58: {Profit: '6509.09', Revenue: 14608.08
+    }59: {Profit: '4085.1', Revenue: 14438.12
+    }60: {Profit: '3218.85', Revenue: 14231.26
+    }61: {Profit: '5154.15', Revenue: 14224.22
+    }62: {Profit: '4177.66', Revenue: 14111.04
+    }63: {Profit: '3919.65', Revenue: 14013.7
+    }64: {Profit: '4909.61', Revenue: 13866.99
+    }65: {Profit: '3130.47', Revenue: 13857.42
+    }66: {Profit: '4511.68', Revenue: 13364.79
+    }67: {Profit: '4664.94', Revenue: 13352.83
+    }68: {Profit: '4060.6', Revenue: 13350.94
+    }69: {Profit: '5542.13', Revenue: 13316.77
+    }70: {Profit: '3844.86', Revenue: 13237.62
+    }71: {Profit: '3811.37', Revenue: 13150.24
+    }72: {Profit: '4895.84', Revenue: 13148.93
+    }73: {Profit: '4077.37', Revenue: 13061.03
+    }74: {Profit: '4543.75', Revenue: 13045.99
+    }75: {Profit: '4316.29', Revenue: 12765.84
+    }76: {Profit: '4855.33', Revenue: 12654.81
+    }77: {Profit: '4260.45', Revenue: 12641.95
+    }78: {Profit: '2908', Revenue: 12082.77
+    }79: {Profit: '3250.44', Revenue: 11926.94
+    }80: {Profit: '2345.67', Revenue: 11363.15
+    }81: {Profit: '2983.67', Revenue: 11296.2
+    }82: {Profit: '3095.71', Revenue: 10938.53
+    }83: {Profit: '4386.78', Revenue: 10912.1
+    }84: {Profit: '2692.35', Revenue: 10726.96
+    }85: {Profit: '3222.99', Revenue: 10578.15
+    }86: {Profit: '2129.48', Revenue: 10567.32
+    }87: {Profit: '3305.13', Revenue: 10431.68
+    }88: {Profit: '3786.68', Revenue: 10286.9
+    }89: {Profit: '4495.38', Revenue: 10188.72
+    }90: {Profit: '2298.32', Revenue: 10171.71
+    }91: {Profit: '2855.1', Revenue: 10125.43
+    }92: {Profit: '3018.02', Revenue: 10051.34
+    }93: {Profit: '4097.51', Revenue: 9963.92
+    }94: {Profit: '3002.89', Revenue: 9962.24
+    }95: {Profit: '2885.54', Revenue: 9700.66
+    }96: {Profit: '2061', Revenue: 9698.04
+    }97: {Profit: '3469.18', Revenue: 9446.93
+    }98: {Profit: '3767.62', Revenue: 9262.16
+    }99: {Profit: '3845.71', Revenue: 9197.63
+    }[
+        100 … 199
+    ]length: 200[
+        [Prototype
+        ]
+    ]: Array(0)[
+        [Prototype
+        ]
+    ]: Objectprofitability_analysis: [
+        [Prototype
+        ]
+    ]: Objectpromotions: [
+        [Prototype
+        ]
+    ]: Objectrecommendations: operational: []priority_actions: Array(1)0: {category: 'Revenue Stability', recommendation: 'High sales volatility detected. Consider diversify… or customer base to reduce revenue fluctuations.', impact: 'High', effort: 'Medium', timeline: '3-6 months'
+    }length: 1[
+        [Prototype
+        ]
+    ]: Array(0)strategic: Array(1)0: {category: 'Revenue Stability', recommendation: 'High sales volatility detected. Consider diversify… or customer base to reduce revenue fluctuations.', impact: 'High', effort: 'Medium', timeline: '3-6 months'
+    }length: 1[
+        [Prototype
+        ]
+    ]: Array(0)tactical: Array(1)0: {category: 'Customer Retention', recommendation: 'High single-purchase customer ratio. Implement follow-up campaigns and retention strategies.', impact: 'Medium', effort: 'Low', timeline: '2-6 weeks'
+    }length: 1[
+        [Prototype
+        ]
+    ]: Array(0)[
+        [Prototype
+        ]
+    ]: Objectreturns: return_rate_percent: "0.00"returned_count: 0[
+        [Prototype
+        ]
+    ]: Objectrisk_analysis: customer_concentration_risk: recommendation: "Maintain customer diversity"risk_level: "Low"risk_score: 35top_20_percent_share: "41.21%"[
+        [Prototype
+        ]
+    ]: Objectinventory_risk: recommendation: "Optimize inventory levels"risk_level: "High"risk_score: 70turnover_rate: 0[
+        [Prototype
+        ]
+    ]: Objectprofitability_risk: profit_margin: "32.01%"profitable_transaction_rate: "100%"recommendation: "Monitor profitability trends"risk_level: "Low"risk_score: 20[
+        [Prototype
+        ]
+    ]: Objectrevenue_concentration_risk: herfindahl_index: 0recommendation: "Monitor concentration levels"risk_level: "Low"risk_score: 30top_category_dependency: "0%"[
+        [Prototype
+        ]
+    ]: Objectseasonal_dependency_risk: recommendation: "Develop counter-seasonal products"risk_level: "High"risk_score: 75seasonal_variation: "1.09"[
+        [Prototype
+        ]
+    ]: Object[
+        [Prototype
+        ]
+    ]: Objectseasonal_analysis: cyclical_patterns: nullmonthly_patterns: Array(12)0: {month: 'Jan', month_number: 1, avg_sales: 0, total_sales: 0, transaction_count: 0, …
+    }1: {month: 'Feb', month_number: 2, avg_sales: '11175.39', total_sales: '257034.05', transaction_count: 23, …
+    }2: {month: 'Mar', month_number: 3, avg_sales: '10891.67', total_sales: '304966.63', transaction_count: 28, …
+    }3: {month: 'Apr', month_number: 4, avg_sales: '10693.83', total_sales: '374284.12', transaction_count: 35, …
+    }4: {month: 'May', month_number: 5, avg_sales: '10588.05', total_sales: '434110.01', transaction_count: 41, …
+    }5: {month: 'Jun', month_number: 6, avg_sales: '10657.10', total_sales: '394312.68', transaction_count: 37, …
+    }6: {month: 'Jul', month_number: 7, avg_sales: '12020.47', total_sales: '360614.06', transaction_count: 30, …
+    }7: {month: 'Aug', month_number: 8, avg_sales: '11410.65', total_sales: '68463.89', transaction_count: 6, …
+    }8: {month: 'Sep', month_number: 9, avg_sales: 0, total_sales: 0, transaction_count: 0, …
+    }9: {month: 'Oct', month_number: 10, avg_sales: 0, total_sales: 0, transaction_count: 0, …
+    }10: {month: 'Nov', month_number: 11, avg_sales: 0, total_sales: 0, transaction_count: 0, …
+    }11: {month: 'Dec', month_number: 12, avg_sales: 0, total_sales: 0, transaction_count: 0, …
+    }length: 12[
+        [Prototype
+        ]
+    ]: Array(0)peak_periods: Array(10)0: {date: '2025-02-11', value: '25316.15', percentage_above_average: '47.71'
+    }1: {date: '2025-02-15', value: '28427.28', percentage_above_average: '65.86'
+    }2: {date: '2025-03-03', value: '30497.31', percentage_above_average: '77.94'
+    }3: {date: '2025-03-13', value: '30112.06', percentage_above_average: '75.69'
+    }4: {date: '2025-03-20', value: '23721.84', percentage_above_average: '38.41'
+    }5: {date: '2025-03-27', value: '33042.11', percentage_above_average: '92.79'
+    }6: {date: '2025-03-31', value: '31118.12', percentage_above_average: '81.56'
+    }7: {date: '2025-04-02', value: '22653.90', percentage_above_average: '32.18'
+    }8: {date: '2025-04-07', value: '32236.34', percentage_above_average: '88.09'
+    }9: {date: '2025-04-13', value: '35894.03', percentage_above_average: '109.43'
+    }length: 10[
+        [Prototype
+        ]
+    ]: Array(0)seasonal_indices: Q1: {avg_sales: '11019.62', seasonal_index: '1.005', interpretation: 'Above Average'
+    }Q2: {avg_sales: '10643.42', seasonal_index: '0.970', interpretation: 'Below Average'
+    }Q3: {avg_sales: '11918.83', seasonal_index: '1.087', interpretation: 'Above Average'
+    }Q4: {avg_sales: '0.00', seasonal_index: '0.000', interpretation: 'Below Average'
+    }[
+        [Prototype
+        ]
+    ]: Objecttrend_decomposition: moving_average_4_period: (5) ['29433.89', '33356.28', '36860.66', '24596.24', '22488.07'
+    ]original_data_points: 128trend_direction: "Strong Upward"trend_strength: {slope: '20.7229', r_squared: '0.0042', strength: 'Weak'
+    }volatility: {volatility_percentage: '256.51', volatility_level: 'High'
+    }[
+        [Prototype
+        ]
+    ]: Objectweekly_patterns: Array(7)0: {day: 'Sunday', day_number: 0, avg_sales: '11364.38', total_sales: '329567.15', transaction_count: 29
+    }1: {day: 'Monday', day_number: 1, avg_sales: '11394.20', total_sales: '341825.88', transaction_count: 30
+    }2: {day: 'Tuesday', day_number: 2, avg_sales: '11843.57', total_sales: '319776.26', transaction_count: 27
+    }3: {day: 'Wednesday', day_number: 3, avg_sales: '11828.38', total_sales: '402165.04', transaction_count: 34
+    }4: {day: 'Thursday', day_number: 4, avg_sales: '8164.13', total_sales: '244923.97', transaction_count: 30
+    }5: {day: 'Friday', day_number: 5, avg_sales: '11537.32', total_sales: '323045.07', transaction_count: 28
+    }6: {day: 'Saturday', day_number: 6, avg_sales: '10567.37', total_sales: '232482.07', transaction_count: 22
+    }length: 7[
+        [Prototype
+        ]
+    ]: Array(0)[
+        [Prototype
+        ]
+    ]: Objecttotals: sales_by_region: Array(2)0: Revenue: 1162076.88Sales Channel: "Storefront"[
+        [Prototype
+        ]
+    ]: Object1: Revenue: 1031708.56Sales Channel: "Online"[
+        [Prototype
+        ]
+    ]: Objectlength: 2[
+        [Prototype
+        ]
+    ]: Array(0)[
+        [Prototype
+        ]
+    ]: Objecttrends: daily: Array(128)[
+        0 … 99
+    ][
+        100 … 127
+    ]length: 128[
+        [Prototype
+        ]
+    ]: Array(0)[
+        [Prototype
+        ]
+    ]: Object[
+        [Prototype
+        ]
+    ]: Objectsummary: {Order ID: {…
+        }, Order Date: {…
+        }, Customer Name: {…
+        }, Footwear Type: {…
+        }, Brand: {…
+        }, …
+    }Brand: {type: 'categorical', top_values: Array(5), unique_count: 5
+    }Customer Name: {type: 'categorical', top_values: Array(5), unique_count: 200
+    }Discount (%): {type: 'numeric', count: 200, min: 0, max: 20, mean: 9.32, …
+    }Footwear Type: {type: 'categorical', top_values: Array(5), unique_count: 6
+    }Order Date: {type: 'numeric', count: 200, min: 2025, max: 2025, mean: 2025, …
+    }Order ID: {type: 'numeric', count: 200, min: 3, max: 82958780, mean: 2036032.16, …
+    }Profit: {type: 'numeric', count: 200, min: 227.17, max: 13569.91, mean: 3510.01, …
+    }Revenue: {type: 'numeric', count: 200, min: 943.22, max: 31821.3, mean: 10968.93, …
+    }Sales Channel: {type: 'categorical', top_values: Array(2), unique_count: 2
+    }Unit Price: {type: 'numeric', count: 200, min: 813.43, max: 5970.22, mean: 3553.46, …
+    }Units Sold: {type: 'numeric', count: 200, min: 1, max: 6, mean: 3.44, …
+    }[
+        [Prototype
+        ]
+    ]: Object[
+        [Prototype
+        ]
+    ]:
+}
+}
+}
