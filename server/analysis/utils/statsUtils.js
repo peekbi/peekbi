@@ -1,50 +1,64 @@
-const ss = require('simple-statistics');
-
 /**
- * Filters for numbers and safely computes the sum.
+ * Safe statistical utility functions that handle edge cases
  */
+
 function safeSum(values) {
-    const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
-    return nums.reduce((a, b) => a + b, 0);
+    if (!Array.isArray(values) || values.length === 0) return 0;
+    return values.reduce((sum, val) => {
+        const num = parseFloat(val);
+        return sum + (isNaN(num) ? 0 : num);
+    }, 0);
 }
 
 function safeMean(values) {
-    const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
-    return nums.length ? ss.mean(nums) : 0;
+    if (!Array.isArray(values) || values.length === 0) return 0;
+    const validValues = values.filter(val => !isNaN(parseFloat(val)));
+    if (validValues.length === 0) return 0;
+    return safeSum(validValues) / validValues.length;
 }
 
 function safeMedian(values) {
-    const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
-    return nums.length ? ss.median(nums) : 0;
-}
+    if (!Array.isArray(values) || values.length === 0) return 0;
+    const validValues = values
+        .map(val => parseFloat(val))
+        .filter(val => !isNaN(val))
+        .sort((a, b) => a - b);
 
-function safeMax(values) {
-    const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
-    return nums.length ? ss.max(nums) : 0;
+    if (validValues.length === 0) return 0;
+
+    const mid = Math.floor(validValues.length / 2);
+    return validValues.length % 2 === 0
+        ? (validValues[mid - 1] + validValues[mid]) / 2
+        : validValues[mid];
 }
 
 function safeMin(values) {
-    const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
-    return nums.length ? ss.min(nums) : 0;
+    if (!Array.isArray(values) || values.length === 0) return 0;
+    const validValues = values.filter(val => !isNaN(parseFloat(val)));
+    return validValues.length > 0 ? Math.min(...validValues) : 0;
 }
 
-/**
- * Safely computes the min/max date and range in days.
- */
-function safeDateRange(values) {
-    const dates = values.map(v => new Date(v)).filter(d => !isNaN(d));
-    if (dates.length === 0) return null;
-    const min = new Date(Math.min(...dates));
-    const max = new Date(Math.max(...dates));
-    const rangeDays = (max - min) / (1000 * 60 * 60 * 24);
-    return { min, max, rangeDays };
+function safeMax(values) {
+    if (!Array.isArray(values) || values.length === 0) return 0;
+    const validValues = values.filter(val => !isNaN(parseFloat(val)));
+    return validValues.length > 0 ? Math.max(...validValues) : 0;
+}
+
+function safeStandardDeviation(values) {
+    if (!Array.isArray(values) || values.length === 0) return 0;
+    const validValues = values.filter(val => !isNaN(parseFloat(val)));
+    if (validValues.length <= 1) return 0;
+
+    const mean = safeMean(validValues);
+    const squaredDiffs = validValues.map(val => Math.pow(parseFloat(val) - mean, 2));
+    return Math.sqrt(safeSum(squaredDiffs) / (validValues.length - 1));
 }
 
 module.exports = {
     safeSum,
     safeMean,
     safeMedian,
-    safeMax,
     safeMin,
-    safeDateRange,
+    safeMax,
+    safeStandardDeviation
 };
