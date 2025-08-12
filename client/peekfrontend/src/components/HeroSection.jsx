@@ -59,7 +59,7 @@ const HeroSection = forwardRef((props, heroRef) => {
             >
               PeekBI transforms raw data into real-time intelligence with zero hassle. <br />
               Powered by AI and built with enterprise-grade security, it's your all-in-one <br />
-              Toolkit for smarter, faster, and safer decision-making..
+              Toolkit for smarter, faster, and safer decision-making.
             </motion.p>
 
             <motion.div
@@ -86,7 +86,7 @@ const HeroSection = forwardRef((props, heroRef) => {
 
           {/* Interactive Chart - Takes remaining height */}
           <motion.div
-            className="relative flex justify-center flex-1 min-h-0 overflow-hidden sm:mt-0"
+            className="relative flex justify-center items-center flex-1 min-h-0 overflow-hidden sm:mt-0"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.8 }}
@@ -95,7 +95,7 @@ const HeroSection = forwardRef((props, heroRef) => {
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={data}
-                  margin={{ top: 10, right: 0, left: 0, bottom: 10 }}
+                  margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
                 >
                   <defs>
                     <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
@@ -113,7 +113,7 @@ const HeroSection = forwardRef((props, heroRef) => {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" vertical={false} />
                   <XAxis dataKey="name" tick={false} axisLine={false} />
-                  <YAxis tick={false} axisLine={false} />
+                  <YAxis tick={false} axisLine={false} width={0} />
                   <Tooltip cursor={false} content={() => null} />
                   <Area
                     type="natural"
@@ -130,7 +130,6 @@ const HeroSection = forwardRef((props, heroRef) => {
                     radius={[8, 8, 0, 0]}
                     animationDuration={1650}
                     animationEasing="ease-in-out"
-                    barSize={70}
                     style={{ filter: 'drop-shadow(0 0 15px rgba(168, 85, 247, 0.5))' }}
                   />
                   <Line

@@ -41,6 +41,7 @@ const UserDashboard = () => {
     const [analysisError, setAnalysisError] = useState('');
     const [showAnalysis, setShowAnalysis] = useState(false);
     const [showUpgrade, setShowUpgrade] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
     const filesFetchedRef = useRef(false);
     const initialAnalysisHandledRef = useRef(false);
     const handledFileIdsRef = useRef(new Set());
@@ -71,10 +72,10 @@ const UserDashboard = () => {
                 setUploadedFiles(location.state.uploadedFiles);
                 // Trigger file fetch when new files are uploaded
                 filesFetchedRef.current = false;
-                
+
                 // Immediately fetch files after upload
                 fetchUserFiles();
-                
+
                 // Clear the location state to prevent duplicate fetches on navigation
                 window.history.replaceState({}, document.title);
             }
@@ -92,18 +93,18 @@ const UserDashboard = () => {
         const params = new URLSearchParams(location.search);
         const fileId = params.get('fileId');
         const analysisComplete = params.get('analysisComplete') === 'true';
-        
+
         if (fileId) {
             const file = userFiles.find(f => f._id === fileId);
-            
+
             if (file) {
                 setSelectedFile(file);
-                
+
                 // If the file has analysis data or the analysisComplete flag is set, just show it
                 if (file.analysis || analysisComplete) {
                     setAnalysis(file.analysis);
                     setShowAnalysis(true);
-                    
+
                     // If we have analysisComplete flag but no analysis data yet, 
                     // the analysis might have just completed but the userFiles state hasn't updated
                     // Force a refresh of the files to get the latest analysis data
@@ -128,10 +129,10 @@ const UserDashboard = () => {
         const params = new URLSearchParams(location.search);
         const fileId = params.get('fileId');
         const analysisComplete = params.get('analysisComplete') === 'true';
-        
+
         if (fileId && analysisComplete && !handledFileIdsRef.current.has(fileId)) {
             handledFileIdsRef.current.add(fileId); // Mark this fileId as handled
-            
+
             // First check if we already have the file with analysis in userFiles
             const existingFile = userFiles.find(f => f._id === fileId);
             if (existingFile && existingFile.analysis) {
@@ -140,10 +141,10 @@ const UserDashboard = () => {
                 setShowAnalysis(true);
                 return;
             }
-            
+
             // If not, force a refresh of files to get the latest data
             filesFetchedRef.current = false;
-            
+
             // Make a direct API call to get the file with analysis
             const getFileWithAnalysis = async () => {
                 try {
@@ -151,21 +152,21 @@ const UserDashboard = () => {
                     if (!token) {
                         throw new Error('No authentication token found');
                     }
-                    
+
                     const response = await axios.get(`https://api.peekbi.com/files/${user._id}/${fileId}`, {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }
                     });
-                    
+
                     if (response.data && response.data.file) {
                         const file = response.data.file;
                         setSelectedFile(file);
                         setAnalysis(file.analysis);
                         setShowAnalysis(true);
-                        
+
                         // Also update the file in userFiles
-                        setUserFiles(prev => 
+                        setUserFiles(prev =>
                             prev.map(f => f._id === fileId ? file : f)
                         );
                     } else {
@@ -177,10 +178,22 @@ const UserDashboard = () => {
                     fetchUserFiles();
                 }
             };
-            
+
             getFileWithAnalysis();
         }
     }, [location.search, userFiles]);
+
+    // Close export menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (showExportMenu && !event.target.closest('.export-menu-container')) {
+                setShowExportMenu(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showExportMenu]);
 
     // Function to fetch user files
     const fetchUserFiles = async () => {
@@ -197,29 +210,29 @@ const UserDashboard = () => {
                     category: file.fileCategory || 'General',
                     uploadDate: new Date(file.uploadedAt).toLocaleDateString()
                 }));
-            
-            // Sort files by upload date (newest first)
-            const sortedFiles = [...files].sort((a, b) => 
-                new Date(b.uploadedAt) - new Date(a.uploadedAt)
-            );
-            
-            setUserFiles(sortedFiles);
-            filesFetchedRef.current = true;
-            
-            if (sortedFiles.length > 0 && !selectedFile) {
-                setSelectedFile(sortedFiles[0]);
+
+                // Sort files by upload date (newest first)
+                const sortedFiles = [...files].sort((a, b) =>
+                    new Date(b.uploadedAt) - new Date(a.uploadedAt)
+                );
+
+                setUserFiles(sortedFiles);
+                filesFetchedRef.current = true;
+
+                if (sortedFiles.length > 0 && !selectedFile) {
+                    setSelectedFile(sortedFiles[0]);
+                }
+            } else {
+                setFileError(result.error || "Error fetching files");
+                toast.error(result.error || "Error fetching files");
             }
-        } else {
-            setFileError(result.error || "Error fetching files");
-            toast.error(result.error || "Error fetching files");
+        } catch (err) {
+            setFileError(err.message || "Error fetching files");
+            toast.error(err.message || "Error fetching files");
+        } finally {
+            setIsLoadingFiles(false);
         }
-    } catch (err) {
-        setFileError(err.message || "Error fetching files");
-        toast.error(err.message || "Error fetching files");
-    } finally {
-        setIsLoadingFiles(false);
-    }
-};
+    };
 
     // Fetch user files immediately when component mounts or when triggered by file upload
     useEffect(() => {
@@ -231,21 +244,21 @@ const UserDashboard = () => {
         try {
             // Check if the file already has analysis data
             const fileToAnalyze = userFiles.find(f => f._id === fileId);
-            
+
             // If file already has analysis data, just show it without re-analyzing
             if (fileToAnalyze?.analysis) {
                 setSelectedFile(fileToAnalyze);
                 setAnalysis(fileToAnalyze.analysis);
                 setShowAnalysis(true);
-                
+
                 // Navigate to dashboard to show analysis if not already there
                 if (location.pathname !== '/user/dashboard' && location.pathname !== '/user') {
                     navigate(`/user/dashboard?fileId=${fileId}`);
                 }
-                
+
                 return;
             }
-            
+
             // Start new analysis
             setSelectedFile(fileToAnalyze);
             setIsLoadingAnalysis(true);
@@ -274,16 +287,16 @@ const UserDashboard = () => {
                 }
                 return file;
             });
-            
+
             setUserFiles(updatedFiles);
             setAnalysis(response.data.analysis);
             setShowAnalysis(true);
-            
+
             // Always navigate to dashboard to show analysis
             // Add analysisComplete=true flag to prevent re-analysis
             navigate(`/user/dashboard?fileId=${fileId}&analysisComplete=true`);
             toast.success('Analysis completed successfully!');
-            
+
         } catch (err) {
             setAnalysisError(err.response?.data?.message || 'Failed to load analysis');
             toast.error(err.response?.data?.message || 'Failed to load analysis');
@@ -390,10 +403,74 @@ const UserDashboard = () => {
         XLSX.writeFile(wb, `${file?.originalName?.replace(/\.[^/.]+$/, '') || 'analysis'}.xlsx`);
     };
 
+    // --- Secure JSON Export Function ---
+    const createSecureExportData = () => {
+        if (!selectedFile || !analysis) return null;
+
+        const secureData = {
+            file_info: {
+                name: selectedFile?.originalName || 'Unknown',
+                size: selectedFile?.sizeInBytes ? `${(selectedFile.sizeInBytes / 1024).toFixed(1)} KB` : 'Unknown',
+                upload_date: selectedFile?.uploadedAt ? new Date(selectedFile.uploadedAt).toLocaleDateString() : 'Unknown',
+                category: selectedFile?.fileCategory || 'Unknown'
+            },
+            analysis_summary: {
+                total_sections: Object.keys(analysis?.insights || {}).length,
+                export_timestamp: new Date().toISOString(),
+                dashboard_version: '2.0'
+            },
+            insights: {},
+            summary: analysis?.summary || {}
+        };
+
+        // Safely include insights data
+        if (analysis?.insights) {
+            const insights = analysis.insights;
+
+            // Include all available insights sections
+            if (insights.kpis) secureData.insights.kpis = insights.kpis;
+            if (insights.advanced_kpis) secureData.insights.advanced_kpis = insights.advanced_kpis;
+            if (insights.highPerformers) secureData.insights.high_performers = insights.highPerformers;
+            if (insights.lowPerformers) secureData.insights.low_performers = insights.lowPerformers;
+            if (insights.totals) secureData.insights.totals = insights.totals;
+            if (insights.trends) secureData.insights.trends = insights.trends;
+            if (insights.customer_segments) secureData.insights.customer_segments = insights.customer_segments;
+            if (insights.seasonal_analysis) secureData.insights.seasonal_analysis = insights.seasonal_analysis;
+            if (insights.forecasting) secureData.insights.forecasting = insights.forecasting;
+            if (insights.performance_metrics) secureData.insights.performance_metrics = insights.performance_metrics;
+            if (insights.risk_analysis) secureData.insights.risk_analysis = insights.risk_analysis;
+            if (insights.recommendations) secureData.insights.recommendations = insights.recommendations;
+            if (insights.alerts) secureData.insights.alerts = insights.alerts;
+            if (insights.outliers) secureData.insights.outliers = insights.outliers;
+            if (insights.correlations) secureData.insights.correlations = insights.correlations;
+            if (insights.hypothesis) secureData.insights.hypothesis = insights.hypothesis;
+            if (insights.product_analysis) secureData.insights.product_analysis = insights.product_analysis;
+        }
+
+        return secureData;
+    };
+
+    const handleExportToJSON = () => {
+        const secureData = createSecureExportData();
+        if (!secureData) return;
+
+        const dataStr = JSON.stringify(secureData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${selectedFile?.originalName?.replace(/\.[^/.]+$/, '') || 'analysis'}_data.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success('JSON export completed successfully!');
+    };
+
     // Recent Files Component
     const RecentFiles = () => {
         const recentFiles = userFiles.slice(0, 5); // Get 5 most recent files
-        
+
         if (isLoadingFiles) {
             return (
                 <div className="min-h-screen bg-gradient-to-br from-[#7400B8]/5 via-[#9B4DCA]/5 to-[#C77DFF]/5 flex items-center justify-center">
@@ -406,7 +483,7 @@ const UserDashboard = () => {
                 </div>
             );
         }
-        
+
         if (recentFiles.length === 0) {
             return (
                 <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-xl border border-white/20">
@@ -456,11 +533,10 @@ const UserDashboard = () => {
                         <motion.div
                             key={file._id}
                             whileHover={{ y: -2 }}
-                            className={`p-4 rounded-2xl cursor-pointer transition-all duration-300 bg-white/60 backdrop-blur-sm border ${
-                                selectedFile?._id === file._id
-                                    ? 'border-[#7400B8]/50 shadow-lg bg-gradient-to-r from-[#F9F4FF] to-white'
-                                    : 'border-white/30 hover:border-[#7400B8]/30 hover:shadow-md'
-                            }`}
+                            className={`p-4 rounded-2xl cursor-pointer transition-all duration-300 bg-white/60 backdrop-blur-sm border ${selectedFile?._id === file._id
+                                ? 'border-[#7400B8]/50 shadow-lg bg-gradient-to-r from-[#F9F4FF] to-white'
+                                : 'border-white/30 hover:border-[#7400B8]/30 hover:shadow-md'
+                                }`}
                             onClick={() => setSelectedFile(file)}
                         >
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -555,8 +631,8 @@ const UserDashboard = () => {
         }
 
         const category = file.fileCategory || 'General';
-        
-        switch(category) {
+
+        switch (category) {
             case 'Retail':
                 return (
                     <>
@@ -662,15 +738,15 @@ const UserDashboard = () => {
                 );
         }
     };
-    
+
     const DashboardContent = () => {
         const fileToDisplay = selectedFile || (userFiles.length > 0 ? userFiles[0] : null);
 
         if (showAnalysis && analysis && fileToDisplay) {
             return (
-                <AnalysisDashboard 
-                    file={fileToDisplay} 
-                    analysisData={analysis} 
+                <AnalysisDashboard
+                    file={fileToDisplay}
+                    analysisData={analysis}
                     onBack={handleBackToDashboard}
                 />
             );
@@ -694,7 +770,7 @@ const UserDashboard = () => {
                             </div>
                             <h2 className="text-2xl font-bold text-gray-800 mb-2">Analyzing Your Data</h2>
                             <p className="text-gray-600 mb-6">Processing your file to extract valuable insights...</p>
-                            
+
                             <div className="w-full max-w-md mx-auto">
                                 <div className="relative">
                                     <div className="flex mb-3 items-center justify-between">
@@ -736,7 +812,7 @@ const UserDashboard = () => {
 
     const getHeaderInfo = () => {
         const path = location.pathname;
-        
+
         // If showing analysis, the header should have a back button and AI button
         if (showAnalysis && selectedFile) {
             const category = selectedFile.fileCategory || 'General';
@@ -777,15 +853,67 @@ const UserDashboard = () => {
 
     // --- Export Button for Header ---
     const exportButton = (showAnalysis && analysis && selectedFile) ? (
-        <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleExportToExcel}
-            className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-xl transition-all duration-200 text-sm sm:text-base border border-white/30"
-        >
-            <FiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="font-medium">Export to Excel</span>
-        </motion.button>
+        <div className="relative export-menu-container">
+            <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-xl transition-all duration-200 text-sm sm:text-base border border-white/30"
+            >
+                <FiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="font-medium">Export Data</span>
+                <svg className={`w-4 h-4 transition-transform duration-200 ${showExportMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </motion.button>
+
+            {/* Export Dropdown Menu */}
+            {showExportMenu && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+                    <div className="py-2">
+                        <button
+                            onClick={() => {
+                                handleExportToExcel();
+                                setShowExportMenu(false);
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-3 transition-colors duration-200"
+                        >
+                            <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm0 2h12v10H4V5z" />
+                                <path d="M6 7h8v2H6V7zm0 4h8v2H6v-2z" />
+                            </svg>
+                            <div>
+                                <div className="font-medium">Export as Excel</div>
+                                <div className="text-xs text-gray-500">Complete data in spreadsheet format</div>
+                            </div>
+                        </button>
+                        <button
+                            onClick={() => {
+                                handleExportToJSON();
+                                setShowExportMenu(false);
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors duration-200"
+                        >
+                            <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V8zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2z" clipRule="evenodd" />
+                            </svg>
+                            <div>
+                                <div className="font-medium">Export as JSON</div>
+                                <div className="text-xs text-gray-500">Structured data for developers</div>
+                            </div>
+                        </button>
+                    </div>
+                    {/* <div className="border-t border-gray-100 px-4 py-2 bg-gray-50">
+                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                            </svg>
+                            Secure export - sensitive API data excluded
+                        </p>
+                    </div> */}
+                </div>
+            )}
+        </div>
     ) : null;
 
     return (
@@ -839,7 +967,7 @@ const UserDashboard = () => {
                             </div>
                         } />
                         <Route path="data-sources" element={
-                            <DataSources 
+                            <DataSources
                                 userFiles={userFiles}
                                 isLoading={isLoadingFiles}
                                 handleLoadFileAnalysis={handleLoadFileAnalysis}
