@@ -40,7 +40,7 @@ const ContactUs = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto">
-                <Link 
+                <Link
                     to="/"
                     className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-8 transition-colors duration-200"
                 >
@@ -60,7 +60,7 @@ const ContactUs = () => {
                         {/* Contact Information */}
                         <div>
                             <h2 className="text-xl font-semibold text-gray-900 mb-6">Get in Touch</h2>
-                            
+
                             <div className="space-y-6">
                                 <div className="flex items-start space-x-4">
                                     <FiMail className="w-6 h-6 text-blue-600 mt-1" />
@@ -75,7 +75,7 @@ const ContactUs = () => {
                                     <FiPhone className="w-6 h-6 text-blue-600 mt-1" />
                                     <div>
                                         <h3 className="font-medium text-gray-900">Phone</h3>
-                                        <p className="text-gray-600">+91 9818133045</p>
+                                        <p className="text-gray-600">+91 9771068190</p>
                                         <p className="text-gray-600">Mon-Fri, 9am-6pm IST</p>
                                     </div>
                                 </div>
@@ -88,8 +88,8 @@ const ContactUs = () => {
                                             Office no. 219<br />
                                             Biscomaun Bhawan<br />
                                             IT Hub, Patna<br />
-                                            Bihar, 800001. 
-                            
+                                            Bihar, 800001.
+
                                         </p>
                                     </div>
                                 </div>
@@ -99,7 +99,7 @@ const ContactUs = () => {
                         {/* Contact Form */}
                         <div>
                             <h2 className="text-xl font-semibold text-gray-900 mb-6">Send us a Message</h2>
-                            
+
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div>
                                     <label htmlFor="name" className="block text-sm font-medium text-gray-700">
@@ -164,9 +164,8 @@ const ContactUs = () => {
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className={`w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                                        isSubmitting ? 'opacity-75 cursor-not-allowed' : ''
-                                    }`}
+                                    className={`w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isSubmitting ? 'opacity-75 cursor-not-allowed' : ''
+                                        }`}
                                 >
                                     {isSubmitting ? (
                                         'Sending...'
