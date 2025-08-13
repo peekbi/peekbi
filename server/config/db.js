@@ -27,6 +27,7 @@ async function connectWithRetry(retries = MAX_RETRIES) {
 
         if (!cached.promise) {
             const opts = {
+                dbName: "peekbi",
                 serverSelectionTimeoutMS: 5000,
                 socketTimeoutMS: 45000,
                 maxPoolSize: 10,
