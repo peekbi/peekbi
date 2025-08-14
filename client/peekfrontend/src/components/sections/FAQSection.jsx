@@ -135,10 +135,22 @@ const FAQSection = () => {
                             Whether you need technical assistance, have questions about your data, or want to explore advanced features, we're ready to assist.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                            <button className="bg-gradient-to-r from-[#7400B8] to-[#9B4DCA] text-white px-8 py-3 rounded-xl text-lg font-medium hover:from-[#9B4DCA] hover:to-[#C77DFF] transition-all duration-300 shadow-lg hover:shadow-xl">
+                            <button className="bg-gradient-to-r from-[#7400B8] to-[#9B4DCA] text-white px-8 py-3 rounded-xl text-lg font-medium hover:from-[#9B4DCA] hover:to-[#C77DFF] transition-all duration-300 shadow-lg hover:shadow-xl"
+                                onClick={() => {
+                                    const phone = '919771068190';
+                                    const text = encodeURIComponent('Hi PeekBI Support, I need assistance with my account.');
+                                    window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+                                }}
+                            >
                                 Contact Support
                             </button>
-                            <button className="bg-white text-[#7400B8] border-2 border-[#7400B8] px-8 py-3 rounded-xl text-lg font-medium hover:bg-[#7400B8] hover:text-white transition-all duration-300">
+                            <button className="bg-white text-[#7400B8] border-2 border-[#7400B8] px-8 py-3 rounded-xl text-lg font-medium hover:bg-[#7400B8] hover:text-white transition-all duration-300"
+                                onClick={() => {
+                                    const phone = '919771068190';
+                                    const text = encodeURIComponent('Hi PeekBI Team, I would like to schedule a demo of PeekBI.');
+                                    window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+                                }}
+                            >
                                 Schedule Demo
                             </button>
                         </div>

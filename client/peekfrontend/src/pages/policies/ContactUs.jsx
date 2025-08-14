@@ -22,6 +22,18 @@ const ContactUs = () => {
             // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 1000));
             setSubmitStatus('success');
+
+            // Send to WhatsApp as well
+            const phone = '919771068190';
+            const text = encodeURIComponent(
+                `Contact Request from PeekBI\n` +
+                `Name: ${formData.name}\n` +
+                `Email: ${formData.email}\n` +
+                `Subject: ${formData.subject}\n` +
+                `Message: ${formData.message}`
+            );
+            window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+
             setFormData({ name: '', email: '', subject: '', message: '' });
         } catch (error) {
             setSubmitStatus('error');
@@ -93,6 +105,18 @@ const ContactUs = () => {
                                         </p>
                                     </div>
                                 </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const phone = '919771068190';
+                                        const text = encodeURIComponent('Hi PeekBI Team, I would like to contact support.');
+                                        window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+                                    }}
+                                    className="mt-4 inline-flex items-center px-4 py-2 rounded-md bg-green-500 text-white hover:bg-green-600"
+                                >
+                                    Contact via WhatsApp
+                                </button>
                             </div>
                         </div>
 
@@ -164,8 +188,7 @@ const ContactUs = () => {
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className={`w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isSubmitting ? 'opacity-75 cursor-not-allowed' : ''
-                                        }`}
+                                    className={`w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isSubmitting ? 'opacity-75 cursor-not-allowed' : ''}`}
                                 >
                                     {isSubmitting ? (
                                         'Sending...'

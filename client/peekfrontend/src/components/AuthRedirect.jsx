@@ -30,9 +30,9 @@ const AuthRedirect = ({ children }) => {
         );
     }
 
-    // If user is already authenticated, redirect to dashboard
+    // If user is already authenticated, redirect to profile/subscription onboarding
     if (user) {
-        return <Navigate to="/user/dashboard" replace />;
+        return <Navigate to="/user/profile" replace state={{ highlightSubscription: true }} />;
     }
 
     // Otherwise, render the children (login or register component)

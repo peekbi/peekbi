@@ -47,7 +47,13 @@ const CTASection = () => {
                             <FiArrowRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" />
                         </button>
 
-                        <button className="bg-transparent text-white border-2 border-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white hover:bg-opacity-10 transition-all duration-300">
+                        <button className="bg-transparent text-white border-2 border-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white hover:bg-opacity-10 transition-all duration-300"
+                            onClick={() => {
+                                const phone = '919771068190';
+                                const text = encodeURIComponent('Hi PeekBI Team, I would like to schedule a demo of PeekBI.');
+                                window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+                            }}
+                        >
                             Schedule Demo
                         </button>
                     </motion.div>

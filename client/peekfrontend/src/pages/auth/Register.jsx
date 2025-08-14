@@ -35,7 +35,8 @@ const Register = () => {
             const result = await register(formData);
             if (result.success) {
                 toast.success('Account created!');
-                navigate('/user/dashboard');
+                // Redirect to subscription/profile page for free trial onboarding
+                navigate('/user/profile', { replace: true, state: { highlightSubscription: true } });
             } else {
                 toast.error(result.error || 'Registration failed');
             }
