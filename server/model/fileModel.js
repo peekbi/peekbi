@@ -23,6 +23,14 @@ const fileSchema = new mongoose.Schema({
         }
     },
     buffer: { type: mongoose.Schema.Types.Mixed, },
+    analysisStatus: {
+        type: String,
+        enum: ['none', 'basic_ready', 'advanced_queued', 'advanced_ready', 'failed'],
+        default: 'none'
+    },
+    advancedAnalysisQueuedAt: { type: Date },
+    advancedAnalysisCompletedAt: { type: Date },
+    advancedAnalysisError: { type: String }
 });
 
 const userFileSchema = new mongoose.Schema({

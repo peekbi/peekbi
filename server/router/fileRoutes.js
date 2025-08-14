@@ -37,6 +37,8 @@ router.get('/rawData/:userId/:fileId', authorization, planMiddleware('download')
 // You must authenticate user and attach user object to req.user before this
 router.post('/promts', authorization, planMiddleware('aiPromts'), incrementAIPromptUsage);
 
+// Read-only analysis fetch with status (no recompute)
+router.get('/analysis/:userId/:fileId', authorization, getFileAnalysisById);
 
 
 module.exports = router;

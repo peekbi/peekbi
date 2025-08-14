@@ -127,6 +127,10 @@ app.use('/plan', planRouter);
 app.use('/files', fileRoutes);
 app.use('/testimonials', testimionialRoutes);
 
+// Cloud Tasks routes
+const taskRoutes = require('./router/taskRoutes');
+app.use('/tasks', taskRoutes);
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {

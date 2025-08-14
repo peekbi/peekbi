@@ -45,7 +45,6 @@ function safeParseDate(val) {
  * - Converts date columns to JavaScript Date objects
  */
 function cleanData(rawData) {
-    console.log("🔧 Running cleanData...");
 
     let dataFrame = new df.DataFrame(rawData);
 
