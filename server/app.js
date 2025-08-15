@@ -31,6 +31,8 @@ const allowedOrigins = [
     'https://peekbiforntend.vercel.app',
     'https://ufdevs.me',
     'https://www.peekbi.com',
+    'https://api.peekbi.com', // Add the service URL for internal requests
+    process.env.CLOUD_RUN_SERVICE_URL, // Add Cloud Run service URL
     process.env.FRONTEND_URL // Add your Render frontend URL here
 ].filter(Boolean); // Remove any undefined values
 
