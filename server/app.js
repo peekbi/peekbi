@@ -136,6 +136,8 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Cloud Run Service URL: ${process.env.CLOUD_RUN_SERVICE_URL || 'Not set'}`);
+    console.log(`Background tasks: ${process.env.CLOUD_RUN_SERVICE_URL ? 'HTTP-based' : 'Direct processing'}`);
 });
 
 

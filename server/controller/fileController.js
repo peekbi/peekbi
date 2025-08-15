@@ -112,9 +112,9 @@ exports.performAnalysis = async (req, res) => {
         const totalCols = df.shape[1];
         console.log(`[Analysis] 🧮 DataFrame shape rows=${totalRows} cols=${totalCols} category=${fileCategory}`);
 
-        // If rows <= 5000, compute full insights synchronously
-        if (totalRows <= 5000) {
-            console.log(`[Analysis] ≤5000 rows → computing full insights inline`);
+        // If rows <= 3000, compute full insights synchronously
+        if (totalRows <= 3000) {
+            console.log(`[Analysis] ≤3000 rows → computing full insights inline`);
             const t1 = Date.now();
             const summary = analysis.analyzeOverallStats(df);
             const insights = analysis.getInsightsByCategory(df, fileCategory);
@@ -143,7 +143,7 @@ exports.performAnalysis = async (req, res) => {
 
         // For large datasets (> 3000 rows): compute preview insights on first 5000 rows
         console.log(`[Analysis] >3000 rows → computing preview on first 5000 rows and enqueueing background job`);
-        const dfPreview = df.head(3000);
+        const dfPreview = df.head(5000);
         const memStart = process.memoryUsage().rss / (1024 * 1024);
         console.log(`[Analysis] 💽 Memory before preview: ${memStart.toFixed(1)} MB`);
         const p1 = Date.now();
@@ -198,20 +198,17 @@ exports.performAnalysis = async (req, res) => {
         console.log(`[Analysis] 💾 Saved preview insights & queued status to DB | userId=${userId} fileId=${fileId}`);
 
         // Trigger background processing
-        setTimeout(async () => {
+        setImmediate(() => {
             const host = req.get('host');
             const isLocalhost = host && (host.includes('localhost') || host.includes('127.0.0.1'));
 
             // Skip HTTP request for localhost development, go straight to direct processing
             if (isLocalhost) {
                 console.log(`[Analysis] Localhost detected, using direct processing for ${fileId}`);
-                try {
-                    await processFullAnalysisDirectly(userId, fileId, fileCategory);
-                } catch (directErr) {
+                processFullAnalysisDirectly(userId, fileId, fileCategory).catch(directErr => {
                     console.error(`[Analysis] Direct processing failed:`, directErr);
-                    // Update status to failed
-                    try {
-                        const userDoc = await UserFile.findOne({ userId });
+                    // Update status to failed (fire-and-forget)
+                    UserFile.findOne({ userId }).then(userDoc => {
                         if (userDoc) {
                             const fileEntry = userDoc.files.id(fileId);
                             if (fileEntry) {
@@ -221,59 +218,54 @@ exports.performAnalysis = async (req, res) => {
                                     level: 'error',
                                     message: 'Background processing failed: ' + directErr.message
                                 }];
-                                await userDoc.save();
+                                userDoc.save().catch(updateErr => {
+                                    console.error(`[Analysis] Failed to update error status:`, updateErr);
+                                });
                             }
                         }
-                    } catch (updateErr) {
-                        console.error(`[Analysis] Failed to update error status:`, updateErr);
-                    }
-                }
+                    }).catch(err => console.error(`[Analysis] Error finding user doc:`, err));
+                });
                 return;
             }
 
-            try {
-                // Try HTTP request first (for production/Cloud Run)
-                let backgroundUrl;
+            // Try HTTP request first (for production/Cloud Run)
+            let backgroundUrl;
 
-                // In Cloud Run, use the service URL if available
-                if (process.env.CLOUD_RUN_SERVICE_URL) {
-                    backgroundUrl = `${process.env.CLOUD_RUN_SERVICE_URL}/api/tasks/process-analysis`;
-                } else {
-                    // Fallback to request host
-                    const protocol = req.get('x-forwarded-proto') || req.protocol;
-                    backgroundUrl = `${protocol}://${host}/api/tasks/process-analysis`;
-                }
+            // In Cloud Run, use the service URL if available
+            if (process.env.CLOUD_RUN_SERVICE_URL) {
+                backgroundUrl = `${process.env.CLOUD_RUN_SERVICE_URL}/api/tasks/process-analysis`;
+            } else {
+                // Fallback to request host
+                const protocol = req.get('x-forwarded-proto') || req.protocol;
+                backgroundUrl = `${protocol}://${host}/api/tasks/process-analysis`;
+            }
 
-                const fetch = require('node-fetch');
-                console.log(`[Analysis] Attempting background request to: ${backgroundUrl}`);
+            const fetch = require('node-fetch');
+            console.log(`[Analysis] Attempting background request to: ${backgroundUrl}`);
 
-                const response = await fetch(backgroundUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Internal-Token': process.env.INTERNAL_TOKEN || 'peekbi-internal'
-                    },
-                    body: JSON.stringify({ userId, fileId, fileCategory }),
-                    timeout: 5000 // 5 second timeout
-                });
-
+            fetch(backgroundUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Internal-Token': process.env.INTERNAL_TOKEN || 'peekbi-internal'
+                },
+                body: JSON.stringify({ userId, fileId, fileCategory }),
+                timeout: 5000
+            }).then(response => {
                 if (response.ok) {
                     console.log(`[Analysis] Background processing triggered successfully for ${fileId}`);
                 } else {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-            } catch (err) {
+            }).catch(err => {
                 console.error(`[Analysis] HTTP background trigger failed:`, err.message);
 
-                // Fallback: Process directly in this instance (for development/single instance)
+                // Fallback: Process directly (fire-and-forget)
                 console.log(`[Analysis] Falling back to direct processing for ${fileId}`);
-                try {
-                    await processFullAnalysisDirectly(userId, fileId, fileCategory);
-                } catch (directErr) {
+                processFullAnalysisDirectly(userId, fileId, fileCategory).catch(directErr => {
                     console.error(`[Analysis] Direct processing also failed:`, directErr);
-                    // Update status to failed
-                    try {
-                        const userDoc = await UserFile.findOne({ userId });
+                    // Update status to failed (fire-and-forget)
+                    UserFile.findOne({ userId }).then(userDoc => {
                         if (userDoc) {
                             const fileEntry = userDoc.files.id(fileId);
                             if (fileEntry) {
@@ -283,15 +275,15 @@ exports.performAnalysis = async (req, res) => {
                                     level: 'error',
                                     message: 'Background processing failed: ' + directErr.message
                                 }];
-                                await userDoc.save();
+                                userDoc.save().catch(updateErr => {
+                                    console.error(`[Analysis] Failed to update error status:`, updateErr);
+                                });
                             }
                         }
-                    } catch (updateErr) {
-                        console.error(`[Analysis] Failed to update error status:`, updateErr);
-                    }
-                }
-            }
-        }, 100);
+                    }).catch(err => console.error(`[Analysis] Error finding user doc:`, err));
+                });
+            });
+        });
 
         // Respond immediately with preview insights as final success (hide background status)
         if (req.planUsage && req.planUsage.featureKey === 'analyse') {
