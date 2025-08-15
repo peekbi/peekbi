@@ -234,9 +234,8 @@ exports.performAnalysis = async (req, res) => {
             }
 
             // For production: HTTP request to background endpoint
-            const backgroundUrl = process.env.CLOUD_RUN_SERVICE_URL
-                ? `${process.env.CLOUD_RUN_SERVICE_URL}/api/tasks/process-analysis`
-                : `${req.get('x-forwarded-proto') || req.protocol}://${host}/api/tasks/process-analysis`;
+            const baseUrl = process.env.CLOUD_RUN_SERVICE_URL || `${req.get('x-forwarded-proto') || req.protocol}://${host}`;
+            const backgroundUrl = `${baseUrl.replace(/\/$/, '')}/tasks/process-analysis`;
 
             console.log(`[Analysis] 🌐 Background HTTP to: ${backgroundUrl}`);
 
