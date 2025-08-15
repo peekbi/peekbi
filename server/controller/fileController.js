@@ -162,17 +162,23 @@ exports.performAnalysis = async (req, res) => {
             });
         }
 
-        // For large datasets (> 3000 rows): compute lightweight preview insights
-        console.log(`[Analysis] >3000 rows → computing lightweight preview and enqueueing background job`);
+        // For large datasets (> 3000 rows): compute preview insights on first 3000 rows
+        console.log(`[Analysis] >3000 rows → computing preview on first 3000 rows and enqueueing background job`);
+        const dfPreview = df.head(3000);
+        const memStart = process.memoryUsage().rss / (1024 * 1024);
+        console.log(`[Analysis] 💽 Memory before preview: ${memStart.toFixed(1)} MB`);
         const p1 = Date.now();
-        console.log('[Analysis] ▶︎ generateLightweightPreview:start');
-
-        // Generate super fast preview insights (no complex analysis)
-        const summary = analysis.analyzeOverallStats(df.head(1000)); // Only 1000 rows for summary
-        const previewInsights = generateLightweightPreview(df, fileCategory);
-
-        console.log(`[Analysis] ◀︎ generateLightweightPreview:done in ${Date.now() - p1}ms`);
-        console.log(`[Analysis] ✅ Lightweight preview completed`);
+        console.log('[Analysis] ▶︎ analyzeOverallStats(3k):start');
+        const summary = analysis.analyzeOverallStats(dfPreview);
+        console.log(`[Analysis] ◀︎ analyzeOverallStats(3k):done in ${Date.now() - p1}ms`);
+        const p2 = Date.now();
+        console.log('[Analysis] ▶︎ getInsightsByCategory(3k):start');
+        const previewInsights = analysis.getInsightsByCategory(dfPreview, fileCategory);
+        console.log(`[Analysis] ◀︎ getInsightsByCategory(3k):done in ${Date.now() - p2}ms`);
+        const p3 = Date.now();
+        const memAfter = process.memoryUsage().rss / (1024 * 1024);
+        console.log(`[Analysis] 💽 Memory after preview: ${memAfter.toFixed(1)} MB (Δ ${(memAfter - memStart).toFixed(1)} MB)`);
+        console.log(`[Analysis] ✅ Preview total ${p3 - p1}ms`);
 
         // Estimate full analysis time based on preview throughput
         const insightMs = Math.max(1, Date.now() - p2);
@@ -212,17 +218,15 @@ exports.performAnalysis = async (req, res) => {
         }
         console.log(`[Analysis] 💾 Saved preview insights & queued status to DB | userId=${userId} fileId=${fileId}`);
 
-        // Trigger background processing
-        // Trigger background processing ONCE (fire-and-forget)
-        setImmediate(() => {
-            console.log(`[Analysis] 🚀 Starting background processing for ${fileId}`);
+        // Trigger background processing (completely non-blocking)
+        process.nextTick(() => {
+            console.log(`[Analysis] 🚀 Background processing queued for ${fileId}`);
 
             const host = req.get('host');
             const isLocalhost = host && (host.includes('localhost') || host.includes('127.0.0.1'));
 
             if (isLocalhost) {
-                // For localhost: direct processing only
-                console.log(`[Analysis] 🏠 Localhost - using direct processing`);
+                console.log(`[Analysis] 🏠 Localhost - direct processing`);
                 processFullAnalysisDirectly(userId, fileId, fileCategory).catch(err => {
                     console.error(`[Analysis] ❌ Direct processing failed:`, err);
                 });
@@ -234,31 +238,21 @@ exports.performAnalysis = async (req, res) => {
                 ? `${process.env.CLOUD_RUN_SERVICE_URL}/api/tasks/process-analysis`
                 : `${req.get('x-forwarded-proto') || req.protocol}://${host}/api/tasks/process-analysis`;
 
-            console.log(`[Analysis] 🌐 HTTP request to: ${backgroundUrl}`);
+            console.log(`[Analysis] 🌐 Background HTTP to: ${backgroundUrl}`);
 
             const fetch = require('node-fetch');
             fetch(backgroundUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Internal-Token': process.env.INTERNAL_TOKEN || 'peekbi-internal',
-                    'User-Agent': 'PeekBI-Internal/1.0'
+                    'X-Internal-Token': process.env.INTERNAL_TOKEN || 'peekbi-internal'
                 },
                 body: JSON.stringify({ userId, fileId, fileCategory }),
-                timeout: 10000,
-                // Disable following redirects and other options that might add origin
-                redirect: 'manual',
-                referrer: ''
+                timeout: 8000
             }).then(response => {
-                if (response.ok) {
-                    console.log(`[Analysis] ✅ HTTP request successful for ${fileId}`);
-                } else {
-                    console.error(`[Analysis] ❌ HTTP failed: ${response.status}`);
-                    // NO FALLBACK - let it fail, user already has preview
-                }
+                console.log(`[Analysis] ${response.ok ? '✅' : '❌'} Background HTTP ${response.status} for ${fileId}`);
             }).catch(err => {
-                console.error(`[Analysis] ❌ HTTP error: ${err.message}`);
-                // NO FALLBACK - let it fail, user already has preview
+                console.error(`[Analysis] ❌ Background HTTP failed: ${err.message}`);
             });
         });
 
@@ -485,120 +479,3 @@ async function processFullAnalysisDirectly(userId, fileId, fileCategory) {
     }
 }
 
-// Lightweight preview function for large datasets - returns immediately
-function generateLightweightPreview(df, fileCategory) {
-    const totalRecords = df.shape[0];
-    const columns = df.columns || [];
-
-    const normalize = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
-    const salesAliases = ['total', 'amount', 'sales', 'sale', 'revenue', 'grosssale', 'netsale', 'invoicevalue', 'totalsales', 'salesamount', 'totalrevenue'];
-    const categoryAliases = ['category', 'product', 'item', 'brand', 'segment', 'subcategory', 'productname'];
-    const dateAliases = ['date', 'orderdate', 'timestamp', 'saledate', 'datetime', 'transactiondate'];
-
-    const findCol = (aliases) => {
-        const normCols = columns.map(c => ({ o: c, n: normalize(c) }));
-        for (const alias of aliases) {
-            const a = normalize(alias);
-            const exact = normCols.find(c => c.n === a);
-            if (exact) return exact.o;
-        }
-        for (const alias of aliases) {
-            const a = normalize(alias);
-            const partial = normCols.find(c => c.n.includes(a) || a.includes(c.n));
-            if (partial) return partial.o;
-        }
-        return undefined;
-    };
-
-    const salesCol = findCol(salesAliases);
-    const categoryCol = findCol(categoryAliases);
-    const dateCol = findCol(dateAliases);
-
-    const num = (v) => {
-        const t = String(v ?? '').replace(/[^0-9.-]/g, '');
-        const p = parseFloat(t);
-        return isNaN(p) ? 0 : p;
-    };
-
-    // Basic insights object
-    const insights = {
-        kpis: { total_records: totalRecords },
-        preview_note: "This is a preview analysis. Full analysis is processing in the background.",
-        data_info: {
-            total_rows: totalRecords,
-            total_columns: columns.length,
-            detected_columns: {
-                sales: salesCol || 'Not detected',
-                category: categoryCol || 'Not detected',
-                date: dateCol || 'Not detected'
-            }
-        }
-    };
-
-    // Quick sample analysis (only first 1000 rows for speed)
-    const sampleSize = Math.min(1000, totalRecords);
-
-    if (salesCol) {
-        const salesVals = [];
-        for (let i = 0; i < sampleSize; i++) {
-            const val = num(df[salesCol].values[i]);
-            if (val > 0) salesVals.push(val);
-        }
-
-        if (salesVals.length > 0) {
-            const totalSales = salesVals.reduce((a, b) => a + b, 0);
-            const avgSales = totalSales / salesVals.length;
-
-            insights.kpis = {
-                ...insights.kpis,
-                sample_total_sales: Number(totalSales.toFixed(2)),
-                sample_avg_sales: Number(avgSales.toFixed(2)),
-                sample_transactions: salesVals.length,
-                estimated_total_sales: Number((totalSales * (totalRecords / sampleSize)).toFixed(2))
-            };
-        }
-    }
-
-    if (salesCol && categoryCol) {
-        const categoryMap = {};
-        for (let i = 0; i < sampleSize; i++) {
-            const cat = df[categoryCol].values[i];
-            const sale = num(df[salesCol].values[i]);
-            if (cat && sale > 0) {
-                const key = String(cat);
-                categoryMap[key] = (categoryMap[key] || 0) + sale;
-            }
-        }
-
-        const topCategories = Object.entries(categoryMap)
-            .map(([k, v]) => ({ [categoryCol]: k, [salesCol]: Number(v.toFixed(2)) }))
-            .sort((a, b) => b[salesCol] - a[salesCol])
-            .slice(0, 5);
-
-        insights.top_categories_preview = topCategories;
-    }
-
-    if (dateCol) {
-        try {
-            const dates = [];
-            for (let i = 0; i < sampleSize; i++) {
-                const d = new Date(df[dateCol].values[i]);
-                if (!isNaN(d.getTime())) dates.push(d);
-            }
-
-            if (dates.length > 1) {
-                const min = new Date(Math.min(...dates));
-                const max = new Date(Math.max(...dates));
-                insights.date_range_preview = {
-                    start: min.toISOString().split('T')[0],
-                    end: max.toISOString().split('T')[0],
-                    sample_days: Math.max(1, Math.round((max - min) / (1000 * 60 * 60 * 24)))
-                };
-            }
-        } catch (e) {
-            // Ignore date parsing errors
-        }
-    }
-
-    return insights;
-}
