@@ -218,40 +218,33 @@ exports.performAnalysis = async (req, res) => {
         }
         console.log(`[Analysis] 💾 Saved preview insights & queued status to DB | userId=${userId} fileId=${fileId}`);
 
-        // Trigger background processing (completely non-blocking)
+        // Trigger background processing using worker thread (completely non-blocking)
         process.nextTick(() => {
-            console.log(`[Analysis] 🚀 Background processing queued for ${fileId}`);
+            console.log(`[Analysis] 🚀 Background processing queued for ${fileId} using worker thread`);
 
-            const host = req.get('host');
-            const isLocalhost = host && (host.includes('localhost') || host.includes('127.0.0.1'));
+            const { Worker } = require('worker_threads');
+            const path = require('path');
 
-            if (isLocalhost) {
-                console.log(`[Analysis] 🏠 Localhost - direct processing`);
-                processFullAnalysisDirectly(userId, fileId, fileCategory).catch(err => {
-                    console.error(`[Analysis] ❌ Direct processing failed:`, err);
-                });
-                return;
-            }
+            const worker = new Worker(path.join(__dirname, '../workers/analysisWorker.js'), {
+                workerData: { userId, fileId, fileCategory }
+            });
 
-            // For production: HTTP request to background endpoint
-            const baseUrl = process.env.CLOUD_RUN_SERVICE_URL || `${req.get('x-forwarded-proto') || req.protocol}://${host}`;
-            const backgroundUrl = `${baseUrl.replace(/\/$/, '')}/tasks/process-analysis`;
+            worker.on('message', (result) => {
+                if (result.success) {
+                    console.log(`[Analysis] ✅ Worker completed analysis for ${result.fileId} in ${result.processingTime}ms`);
+                } else {
+                    console.error(`[Analysis] ❌ Worker failed for ${result.fileId}: ${result.error}`);
+                }
+            });
 
-            console.log(`[Analysis] 🌐 Background HTTP to: ${backgroundUrl}`);
+            worker.on('error', (error) => {
+                console.error(`[Analysis] ❌ Worker thread error for ${fileId}:`, error);
+            });
 
-            const fetch = require('node-fetch');
-            fetch(backgroundUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Internal-Token': process.env.INTERNAL_TOKEN || 'peekbi-internal'
-                },
-                body: JSON.stringify({ userId, fileId, fileCategory }),
-                timeout: 8000
-            }).then(response => {
-                console.log(`[Analysis] ${response.ok ? '✅' : '❌'} Background HTTP ${response.status} for ${fileId}`);
-            }).catch(err => {
-                console.error(`[Analysis] ❌ Background HTTP failed: ${err.message}`);
+            worker.on('exit', (code) => {
+                if (code !== 0) {
+                    console.error(`[Analysis] ❌ Worker thread exited with code ${code} for ${fileId}`);
+                }
             });
         });
 
@@ -416,65 +409,5 @@ exports.incrementAIPromptUsage = async (req, res) => {
     }
 };
 
-// Direct processing function for fallback
-async function processFullAnalysisDirectly(userId, fileId, fileCategory) {
-    const startTime = Date.now();
-
-    try {
-        console.log(`[Direct] Starting full analysis for user=${userId} file=${fileId}`);
-
-        // Update status to processing
-        const userDoc = await UserFile.findOne({ userId });
-        if (!userDoc) throw new Error('User not found');
-
-        const fileEntry = userDoc.files.id(fileId);
-        if (!fileEntry) throw new Error('File not found');
-
-        fileEntry.analysisStatus = 'advanced_queued';
-        fileEntry.analysisLogs = [...(fileEntry.analysisLogs || []), {
-            level: 'info',
-            message: 'Full analysis started (direct processing)'
-        }];
-        await userDoc.save();
-
-        // Download and decrypt data
-        console.log(`[Direct] Downloading data from S3`);
-        const s3Response = await s3Client.send(new GetObjectCommand({
-            Bucket: BUCKET_NAME,
-            Key: fileEntry.analysisS3Key,
-        }));
-
-        const encryptedBuffer = await streamToBuffer(s3Response.Body);
-        const decryptedBuffer = decryptBuffer(encryptedBuffer);
-        const jsonData = JSON.parse(decryptedBuffer.toString());
-
-        console.log(`[Direct] Processing ${Array.isArray(jsonData) ? jsonData.length : 'unknown'} records`);
-
-        // Create DataFrame and run full analysis
-        const df = new dfd.DataFrame(jsonData);
-        const summary = analysis.analyzeOverallStats(df);
-        const insights = analysis.getInsightsByCategory(df, fileCategory);
-
-        // Save results
-        const freshDoc = await UserFile.findOne({ userId });
-        const freshFile = freshDoc.files.id(fileId);
-
-        freshFile.analysis = { summary, insights };
-        freshFile.analysisStatus = 'advanced_ready';
-        freshFile.advancedAnalysisCompletedAt = new Date();
-        freshFile.advancedAnalysisError = undefined;
-        freshFile.analysisLogs = [...(freshFile.analysisLogs || []), {
-            level: 'info',
-            message: 'Full analysis completed (direct processing)'
-        }];
-
-        await freshDoc.save();
-
-        console.log(`[Direct] Completed analysis for ${fileId} in ${Date.now() - startTime}ms`);
-
-    } catch (error) {
-        console.error(`[Direct] Error processing ${fileId}:`, error);
-        throw error; // Re-throw to be handled by caller
-    }
-}
+// Worker thread handles background processing - no direct processing function needed
 
