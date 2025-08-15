@@ -122,7 +122,7 @@ exports.performAnalysis = async (req, res) => {
 
             fileEntry.downloadCount = (fileEntry.downloadCount || 0) + 1;
             fileEntry.analysis = { summary, insights };
-            fileEntry.analysisStatus = 'completed';
+            fileEntry.analysisStatus = 'advanced_ready';
             fileEntry.analysisCompletedAt = new Date();
 
             // Save with retry logic for VersionError
