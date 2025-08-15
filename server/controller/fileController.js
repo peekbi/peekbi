@@ -6,90 +6,9 @@ const streamToBuffer = require('../utils/streamToBuffer');
 const { encryptBuffer, decryptBuffer } = require('../utils/encryption');
 const analysis = require('../analysis');
 const BUCKET_NAME = 'peekbi-usersfiles'; // One bucket for all users
-const { fork } = require('child_process');
-const path = require('path');
 // 🚀 Upload File (Excel ➝ Clean JSON ➝ Encrypt ➝ Upload);
 
-// Lightweight basic insights for large datasets
-function computeBasicInsights(df) {
-    const totalRecords = df.shape[0];
-    const columns = df.columns || [];
 
-    const normalize = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
-    const salesAliases = ['total','amount','sales','sale','revenue','grosssale','netsale','invoicevalue','totalsales','salesamount','totalrevenue'];
-    const categoryAliases = ['category','product','item','brand','segment','subcategory','productname'];
-    const dateAliases = ['date','orderdate','timestamp','saledate','datetime','transactiondate'];
-
-    const findCol = (aliases) => {
-        const normCols = columns.map(c => ({ o: c, n: normalize(c) }));
-        for (const alias of aliases) {
-            const a = normalize(alias);
-            const exact = normCols.find(c => c.n === a);
-            if (exact) return exact.o;
-        }
-        for (const alias of aliases) {
-            const a = normalize(alias);
-            const partial = normCols.find(c => c.n.includes(a) || a.includes(c.n));
-            if (partial) return partial.o;
-        }
-        return undefined;
-    };
-
-    const salesCol = findCol(salesAliases);
-    const categoryCol = findCol(categoryAliases);
-    const dateCol = findCol(dateAliases);
-
-    const num = (v) => {
-        const t = String(v ?? '').replace(/[^0-9.-]/g, '');
-        const p = parseFloat(t);
-        return isNaN(p) ? 0 : p;
-    };
-
-    const basic = { total_records: totalRecords };
-
-    if (dateCol) {
-        try {
-            const dates = df[dateCol].values.map(d => new Date(d)).filter(d => !isNaN(d));
-            if (dates.length > 1) {
-                const min = new Date(Math.min(...dates));
-                const max = new Date(Math.max(...dates));
-                basic.date_range = {
-                    start: min.toISOString(),
-                    end: max.toISOString(),
-                    days: Math.max(1, Math.round((max - min) / (1000 * 60 * 60 * 24)))
-                };
-            }
-        } catch {}
-    }
-
-    if (salesCol) {
-        const salesVals = df[salesCol].values.map(num);
-        const totalSales = salesVals.reduce((a, b) => a + b, 0);
-        const avgSales = salesVals.length ? totalSales / salesVals.length : 0;
-        basic.kpis = {
-            total_sales: Number(totalSales.toFixed(2)),
-            avg_sales: Number(avgSales.toFixed(2)),
-            transactions: salesVals.length,
-        };
-    }
-
-    if (salesCol && categoryCol) {
-        const map = {};
-        for (let i = 0; i < totalRecords; i++) {
-            const cat = df[categoryCol].values[i];
-            const sale = num(df[salesCol].values[i]);
-            if (cat === undefined || cat === null) continue;
-            const key = String(cat);
-            map[key] = (map[key] || 0) + sale;
-        }
-        const list = Object.entries(map)
-            .map(([k, v]) => ({ [categoryCol]: k, [salesCol]: Number(v.toFixed(2)) }))
-            .sort((a, b) => b[salesCol] - a[salesCol]);
-        basic.top_categories = list.slice(0, 5);
-    }
-
-    return basic;
-}
 
 exports.uploadFile = async (req, res) => {
     const userId = req.params.userId;
@@ -193,56 +112,48 @@ exports.performAnalysis = async (req, res) => {
         const totalCols = df.shape[1];
         console.log(`[Analysis] 🧮 DataFrame shape rows=${totalRows} cols=${totalCols} category=${fileCategory}`);
 
-        // If rows <= 5000, compute full insights synchronously (preserve current behavior)
+        // If rows <= 5000, compute full insights synchronously
         if (totalRows <= 5000) {
             console.log(`[Analysis] ≤5000 rows → computing full insights inline`);
             const t1 = Date.now();
-            console.log('[Analysis] ▶︎ analyzeOverallStats:start');
             const summary = analysis.analyzeOverallStats(df);
-            console.log(`[Analysis] ◀︎ analyzeOverallStats:done in ${Date.now() - t1}ms`);
-            const t2 = Date.now();
-            console.log('[Analysis] ▶︎ getInsightsByCategory:start');
             const insights = analysis.getInsightsByCategory(df, fileCategory);
-            console.log(`[Analysis] ◀︎ getInsightsByCategory:done in ${Date.now() - t2}ms`);
-            const t3 = Date.now();
-            console.log(`[Analysis] ✅ Path total ${t3 - t0}ms`);
+            console.log(`[Analysis] ✅ Full analysis completed in ${Date.now() - t1}ms`);
 
             fileEntry.downloadCount = (fileEntry.downloadCount || 0) + 1;
             fileEntry.analysis = { summary, insights };
-            fileEntry.uploadedAt = new Date();
-            fileEntry.analysisStatus = 'advanced_ready';
-            fileEntry.advancedAnalysisCompletedAt = new Date();
-            fileEntry.analysisLogs = [...(fileEntry.analysisLogs || []), { level: 'info', message: 'Full analysis completed synchronously (<=3000 rows)' }];
+            fileEntry.analysisStatus = 'completed';
+            fileEntry.analysisCompletedAt = new Date();
             await userDoc.save();
-            console.log(`[Analysis] 💾 Saved full insights to DB | userId=${userId} fileId=${fileId}`);
-            // ✅ Increment usage count if usage tracking is attached by middleware
+
             if (req.planUsage && req.planUsage.featureKey === 'analyse') {
                 const { usage } = req.planUsage;
                 usage.analyse = (usage.analyse || 0) + 1;
                 await usage.save();
             }
+
             return res.status(200).json({
                 success: true,
                 message: 'Analysis performed successfully.',
                 rawData: jsonData,
                 analysis: { summary, insights },
-                analysisStatus: fileEntry.analysisStatus,
+                analysisStatus: 'completed',
             });
         }
 
-        // For large datasets (> 3000 rows): compute preview insights on first 3000 rows
-        console.log(`[Analysis] >5000 rows → computing preview on first 3000 rows and enqueueing background job`);
-        const dfPreview = df.head(5000);
+        // For large datasets (> 3000 rows): compute preview insights on first 5000 rows
+        console.log(`[Analysis] >3000 rows → computing preview on first 5000 rows and enqueueing background job`);
+        const dfPreview = df.head(3000);
         const memStart = process.memoryUsage().rss / (1024 * 1024);
         console.log(`[Analysis] 💽 Memory before preview: ${memStart.toFixed(1)} MB`);
         const p1 = Date.now();
-        console.log('[Analysis] ▶︎ analyzeOverallStats(3k):start');
+        console.log('[Analysis] ▶︎ analyzeOverallStats(5k):start');
         const summary = analysis.analyzeOverallStats(dfPreview);
-        console.log(`[Analysis] ◀︎ analyzeOverallStats(3k):done in ${Date.now() - p1}ms`);
+        console.log(`[Analysis] ◀︎ analyzeOverallStats(5k):done in ${Date.now() - p1}ms`);
         const p2 = Date.now();
-        console.log('[Analysis] ▶︎ getInsightsByCategory(3k):start');
+        console.log('[Analysis] ▶︎ getInsightsByCategory(5k):start');
         const previewInsights = analysis.getInsightsByCategory(dfPreview, fileCategory);
-        console.log(`[Analysis] ◀︎ getInsightsByCategory(3k):done in ${Date.now() - p2}ms`);
+        console.log(`[Analysis] ◀︎ getInsightsByCategory(5k):done in ${Date.now() - p2}ms`);
         const p3 = Date.now();
         const memAfter = process.memoryUsage().rss / (1024 * 1024);
         console.log(`[Analysis] 💽 Memory after preview: ${memAfter.toFixed(1)} MB (Δ ${(memAfter - memStart).toFixed(1)} MB)`);
@@ -250,9 +161,9 @@ exports.performAnalysis = async (req, res) => {
 
         // Estimate full analysis time based on preview throughput
         const insightMs = Math.max(1, Date.now() - p2);
-        const rowsPerSec = 5000 / (insightMs / 1000);
+        const rowsPerSec = 3000 / (insightMs / 1000);
         const estTotalSec = Math.round(totalRows / rowsPerSec);
-        const estRemainingSec = Math.max(0, estTotalSec - Math.round(5000 / rowsPerSec));
+        const estRemainingSec = Math.max(0, estTotalSec - Math.round(3000 / rowsPerSec));
         const etaMsg = `Estimated full analysis ~ ${Math.floor(estRemainingSec / 60)}m ${Math.round(estRemainingSec % 60)}s (throughput ~ ${rowsPerSec.toFixed(1)} rows/sec, totalRows=${totalRows})`;
         console.log(`[Analysis] ⏳ ${etaMsg}`);
 
@@ -276,7 +187,7 @@ exports.performAnalysis = async (req, res) => {
                         freshFile.analysis = { summary, insights: previewInsights };
                         freshFile.analysisStatus = 'advanced_queued';
                         freshFile.advancedAnalysisQueuedAt = new Date();
-                        freshFile.analysisLogs = [...(freshFile.analysisLogs || []), { level: 'info', message: 'Advanced analysis queued (preview computed for first 3000 rows) [retry]' }, { level: 'info', message: etaMsg }];
+                        freshFile.analysisLogs = [...(freshFile.analysisLogs || []), { level: 'info', message: 'Advanced analysis queued (preview computed for first 5000 rows) [retry]' }, { level: 'info', message: etaMsg }];
                         await freshDoc.save();
                     }
                 }
@@ -286,38 +197,101 @@ exports.performAnalysis = async (req, res) => {
         }
         console.log(`[Analysis] 💾 Saved preview insights & queued status to DB | userId=${userId} fileId=${fileId}`);
 
-        // Background execution via Cloud Tasks (optional) or local worker fallback
-        if (process.env.USE_CLOUD_TASKS === 'true') {
-            try {
-                console.log('[Analysis] ☁ Enqueueing Cloud Task');
-                // Lazy import to avoid hard dependency when not enabled
-                const { enqueueAdvancedAnalysisTask } = require('../utils/cloudTasks');
-                const taskResp = await enqueueAdvancedAnalysisTask({
-                    projectId: process.env.GCP_PROJECT_ID,
-                    location: process.env.GCP_LOCATION,
-                    queue: process.env.GCP_TASK_QUEUE,
-                    url: process.env.GCP_TASK_HANDLER_URL, // must point to an internal endpoint that triggers full analysis
-                    token: process.env.GCP_TASK_TOKEN || 'peekbi-task',
-                    payload: { userId, fileId, fileCategory }
-                });
-                console.log('[Analysis] ☁ Cloud Task enqueued:', taskResp.name);
-                fileEntry.analysisLogs = [...(fileEntry.analysisLogs || []), { level: 'info', message: `Cloud Task enqueued: ${taskResp.name}` }];
-                await userDoc.save();
-            } catch (taskErr) {
-                console.error('[Analysis] ☁ Cloud Task enqueue failed, falling back to local worker:', taskErr);
-                // Fall back to local worker
-                const workerPath = path.join(__dirname, '..', 'analysis', 'worker', 'advancedAnalysisWorker.js');
-                const child = fork(workerPath, [userId, fileId, fileCategory], { detached: true, stdio: 'ignore' });
-                console.log(`[Analysis] 🚀 Forked worker pid=${child.pid} for full analysis (fallback) | userId=${userId} fileId=${fileId}`);
-                child.unref();
+        // Trigger background processing
+        setTimeout(async () => {
+            const host = req.get('host');
+            const isLocalhost = host && (host.includes('localhost') || host.includes('127.0.0.1'));
+
+            // Skip HTTP request for localhost development, go straight to direct processing
+            if (isLocalhost) {
+                console.log(`[Analysis] Localhost detected, using direct processing for ${fileId}`);
+                try {
+                    await processFullAnalysisDirectly(userId, fileId, fileCategory);
+                } catch (directErr) {
+                    console.error(`[Analysis] Direct processing failed:`, directErr);
+                    // Update status to failed
+                    try {
+                        const userDoc = await UserFile.findOne({ userId });
+                        if (userDoc) {
+                            const fileEntry = userDoc.files.id(fileId);
+                            if (fileEntry) {
+                                fileEntry.analysisStatus = 'failed';
+                                fileEntry.advancedAnalysisError = 'Background processing failed';
+                                fileEntry.analysisLogs = [...(fileEntry.analysisLogs || []), {
+                                    level: 'error',
+                                    message: 'Background processing failed: ' + directErr.message
+                                }];
+                                await userDoc.save();
+                            }
+                        }
+                    } catch (updateErr) {
+                        console.error(`[Analysis] Failed to update error status:`, updateErr);
+                    }
+                }
+                return;
             }
-        } else {
-            // Local worker
-            const workerPath = path.join(__dirname, '..', 'analysis', 'worker', 'advancedAnalysisWorker.js');
-            const child = fork(workerPath, [userId, fileId, fileCategory], { detached: true, stdio: 'ignore' });
-            console.log(`[Analysis] 🚀 Forked worker pid=${child.pid} for full analysis | userId=${userId} fileId=${fileId}`);
-            child.unref();
-        }
+
+            try {
+                // Try HTTP request first (for production/Cloud Run)
+                let backgroundUrl;
+
+                // In Cloud Run, use the service URL if available
+                if (process.env.CLOUD_RUN_SERVICE_URL) {
+                    backgroundUrl = `${process.env.CLOUD_RUN_SERVICE_URL}/api/tasks/process-analysis`;
+                } else {
+                    // Fallback to request host
+                    const protocol = req.get('x-forwarded-proto') || req.protocol;
+                    backgroundUrl = `${protocol}://${host}/api/tasks/process-analysis`;
+                }
+
+                const fetch = require('node-fetch');
+                console.log(`[Analysis] Attempting background request to: ${backgroundUrl}`);
+
+                const response = await fetch(backgroundUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Internal-Token': process.env.INTERNAL_TOKEN || 'peekbi-internal'
+                    },
+                    body: JSON.stringify({ userId, fileId, fileCategory }),
+                    timeout: 5000 // 5 second timeout
+                });
+
+                if (response.ok) {
+                    console.log(`[Analysis] Background processing triggered successfully for ${fileId}`);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (err) {
+                console.error(`[Analysis] HTTP background trigger failed:`, err.message);
+
+                // Fallback: Process directly in this instance (for development/single instance)
+                console.log(`[Analysis] Falling back to direct processing for ${fileId}`);
+                try {
+                    await processFullAnalysisDirectly(userId, fileId, fileCategory);
+                } catch (directErr) {
+                    console.error(`[Analysis] Direct processing also failed:`, directErr);
+                    // Update status to failed
+                    try {
+                        const userDoc = await UserFile.findOne({ userId });
+                        if (userDoc) {
+                            const fileEntry = userDoc.files.id(fileId);
+                            if (fileEntry) {
+                                fileEntry.analysisStatus = 'failed';
+                                fileEntry.advancedAnalysisError = 'Background processing failed';
+                                fileEntry.analysisLogs = [...(fileEntry.analysisLogs || []), {
+                                    level: 'error',
+                                    message: 'Background processing failed: ' + directErr.message
+                                }];
+                                await userDoc.save();
+                            }
+                        }
+                    } catch (updateErr) {
+                        console.error(`[Analysis] Failed to update error status:`, updateErr);
+                    }
+                }
+            }
+        }, 100);
 
         // Respond immediately with preview insights as final success (hide background status)
         if (req.planUsage && req.planUsage.featureKey === 'analyse') {
@@ -407,20 +381,16 @@ exports.downloadUserFile = async (req, res) => {
         s3Response.Body.on('end', () => {
             const encryptedBuffer = Buffer.concat(chunks);
             const decryptedBuffer = decryptBuffer(encryptedBuffer);
-            const analysisResult = analyzeExcel(decryptedBuffer);
-            const insights = runAnalysis(analysisResult);
 
             fileEntry.downloadCount = (fileEntry.downloadCount || 0) + 1;
-            fileEntry.analysis = insights
             try {
                 userDoc.save();
             } catch (error) {
                 console.error('Error saving userDoc:', error);
-                // Handle error or throw
             }
             res.setHeader('Content-Disposition', `attachment; filename="${fileEntry.originalName}"`);
-            res.setHeader('Content-Type', fileEntry.mimetype || 'application/octet-stream');
-            res.send(insights);
+            res.setHeader('Content-Type', fileEntry.mimeType || 'application/octet-stream');
+            res.send(decryptedBuffer);
 
         });
     } catch (error) {
@@ -439,7 +409,7 @@ exports.getFileAnalysisById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
-        const file = userDoc.files.id(fileId); // Mongoose subdocument accessor
+        const file = userDoc.files.id(fileId);
 
         if (!file) {
             return res.status(404).json({ success: false, message: 'File not found.' });
@@ -483,3 +453,65 @@ exports.incrementAIPromptUsage = async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 };
+
+// Direct processing function for fallback
+async function processFullAnalysisDirectly(userId, fileId, fileCategory) {
+    const startTime = Date.now();
+
+    try {
+        console.log(`[Direct] Starting full analysis for user=${userId} file=${fileId}`);
+
+        // Update status to processing
+        const userDoc = await UserFile.findOne({ userId });
+        if (!userDoc) throw new Error('User not found');
+
+        const fileEntry = userDoc.files.id(fileId);
+        if (!fileEntry) throw new Error('File not found');
+
+        fileEntry.analysisStatus = 'advanced_queued';
+        fileEntry.analysisLogs = [...(fileEntry.analysisLogs || []), {
+            level: 'info',
+            message: 'Full analysis started (direct processing)'
+        }];
+        await userDoc.save();
+
+        // Download and decrypt data
+        console.log(`[Direct] Downloading data from S3`);
+        const s3Response = await s3Client.send(new GetObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: fileEntry.analysisS3Key,
+        }));
+
+        const encryptedBuffer = await streamToBuffer(s3Response.Body);
+        const decryptedBuffer = decryptBuffer(encryptedBuffer);
+        const jsonData = JSON.parse(decryptedBuffer.toString());
+
+        console.log(`[Direct] Processing ${jsonData.length} records`);
+
+        // Create DataFrame and run full analysis
+        const df = new dfd.DataFrame(jsonData);
+        const summary = analysis.analyzeOverallStats(df);
+        const insights = analysis.getInsightsByCategory(df, fileCategory);
+
+        // Save results
+        const freshDoc = await UserFile.findOne({ userId });
+        const freshFile = freshDoc.files.id(fileId);
+
+        freshFile.analysis = { summary, insights };
+        freshFile.analysisStatus = 'advanced_ready';
+        freshFile.advancedAnalysisCompletedAt = new Date();
+        freshFile.advancedAnalysisError = undefined;
+        freshFile.analysisLogs = [...(freshFile.analysisLogs || []), {
+            level: 'info',
+            message: 'Full analysis completed (direct processing)'
+        }];
+
+        await freshDoc.save();
+
+        console.log(`[Direct] Completed analysis for ${fileId} in ${Date.now() - startTime}ms`);
+
+    } catch (error) {
+        console.error(`[Direct] Error processing ${fileId}:`, error);
+        throw error; // Re-throw to be handled by caller
+    }
+}
